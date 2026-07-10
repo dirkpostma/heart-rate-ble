@@ -9,10 +9,19 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "credentialsSource": "local"
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6789657851",
+        "appleTeamId": "6EXTSNNTE6",
+        "ascApiKeyPath": "/Users/admin/.appstoreconnect/private_keys/AuthKey_42GZ665L6K.p8",
+        "ascApiKeyId": "42GZ665L6K",
+        "ascApiKeyIssuerId": "69a6de6e-5ef0-47e3-e053-5b8c7c11a4d1"
+      }
+    }
   }
 }
