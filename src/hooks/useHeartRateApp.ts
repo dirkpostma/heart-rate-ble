@@ -16,6 +16,7 @@ interface HeartRateApp {
   sample: HeartRateSample | null;
   connect: (device: DiscoveredDevice) => void;
   disconnect: () => void;
+  rescan: () => void;
 }
 
 /**
@@ -105,6 +106,11 @@ export function useHeartRateApp(
     activeMonitor.current?.disconnect();
   }, []);
 
+  const rescan = useCallback(() => {
+    stopScanning();
+    startScanning();
+  }, [startScanning, stopScanning]);
+
   return {
     devices,
     scanning,
@@ -115,5 +121,6 @@ export function useHeartRateApp(
     sample,
     connect,
     disconnect,
+    rescan,
   };
 }

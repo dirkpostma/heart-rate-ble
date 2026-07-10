@@ -37,6 +37,7 @@ export default function App() {
             error={app.error}
             connectingId={app.connectingId}
             onSelect={app.connect}
+            onRescan={app.rescan}
           />
         )}
       </SafeAreaView>

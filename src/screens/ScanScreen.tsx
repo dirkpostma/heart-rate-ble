@@ -2,6 +2,7 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -15,9 +16,10 @@ interface Props {
   error: string | null;
   connectingId: string | null;
   onSelect: (device: DiscoveredDevice) => void;
+  onRescan: () => void;
 }
 
-export function ScanScreen({ devices, scanning, error, connectingId, onSelect }: Props) {
+export function ScanScreen({ devices, scanning, error, connectingId, onSelect, onRescan }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Heart Rate BLE</Text>
@@ -26,12 +28,24 @@ export function ScanScreen({ devices, scanning, error, connectingId, onSelect }:
         <Text style={styles.statusText}>
           {scanning ? 'Scanning for heart-rate sensors…' : 'Scan stopped'}
         </Text>
+        {!scanning && (
+          <Pressable onPress={onRescan} hitSlop={spacing.sm}>
+            <Text style={styles.rescan}>Scan again</Text>
+          </Pressable>
+        )}
       </View>
       {error && <Text style={styles.error}>{error}</Text>}
       <FlatList
         data={devices}
         keyExtractor={(d) => d.id}
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={false}
+            onRefresh={onRescan}
+            tintColor={colors.accent}
+          />
+        }
         renderItem={({ item }) => (
           <Pressable
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
@@ -86,6 +100,11 @@ const styles = StyleSheet.create({
   statusText: {
     color: colors.textDim,
     fontSize: 14,
+  },
+  rescan: {
+    color: colors.accent,
+    fontSize: 14,
+    fontWeight: '600',
   },
   error: {
     color: colors.warning,
