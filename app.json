@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "dev.dirkpostma.heartrateble"
+      "bundleIdentifier": "dev.dirkpostma.heartrateble",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "dev.dirkpostma.heartrateble",
@@ -23,7 +26,12 @@
         "backgroundColor": "#0D1117"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -37,6 +45,12 @@
           "bluetoothAlwaysPermission": "This app uses Bluetooth to connect to heart rate sensors such as your Garmin watch."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "99bcbc6b-f9c2-4e8f-bec5-073d8d773618"
+      }
+    },
+    "owner": "dirkpostma77"
   }
 }
