@@ -6,11 +6,18 @@ import {
   HeartRateSample,
 } from '../ble/HeartRateMonitor';
 
-const DEVICE_TTL_MS = 12000;
+const DEVICE_STALE_MS = 10000;
+
+export type ScannedDevice = DiscoveredDevice & {
+  /** true when the sensor hasn't advertised recently — shown greyed out */
+  stale: boolean;
+};
 
 interface HeartRateApp {
-  devices: DiscoveredDevice[];
+  devices: ScannedDevice[];
   scanning: boolean;
+  scanEnabled: boolean;
+  setScanEnabled: (enabled: boolean) => void;
   error: string | null;
   connectingId: string | null;
   connectedDevice: DiscoveredDevice | null;
@@ -30,8 +37,9 @@ export function useHeartRateApp(
   monitorFor: (device: DiscoveredDevice) => HeartRateMonitor,
   scanSources: HeartRateMonitor[],
 ): HeartRateApp {
-  const [devices, setDevices] = useState<DiscoveredDevice[]>([]);
+  const [devices, setDevices] = useState<ScannedDevice[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [scanEnabled, setScanEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [connectedDevice, setConnectedDevice] = useState<DiscoveredDevice | null>(null);
@@ -48,10 +56,11 @@ export function useHeartRateApp(
       source.startScan(
         (device) => {
           lastSeen.current[device.id] = Date.now();
+          const seen: ScannedDevice = { ...device, stale: false };
           setDevices((prev) =>
             prev.some((d) => d.id === device.id)
-              ? prev.map((d) => (d.id === device.id ? device : d))
-              : [...prev, device],
+              ? prev.map((d) => (d.id === device.id ? seen : d))
+              : [...prev, seen],
           );
         },
         (scanError) => {
@@ -68,25 +77,33 @@ export function useHeartRateApp(
   }, [scanSources]);
 
   // One rule owns the scan lifecycle: scanning runs exactly while the
-  // scan screen is showing (nothing connected or connecting).
+  // scan screen is showing (nothing connected or connecting) and the
+  // user hasn't switched it off.
   useEffect(() => {
-    if (connectedDevice === null && connectingId === null) {
+    if (scanEnabled && connectedDevice === null && connectingId === null) {
       startScanning();
       return stopScanning;
     }
-  }, [connectedDevice, connectingId, startScanning, stopScanning]);
+  }, [scanEnabled, connectedDevice, connectingId, startScanning, stopScanning]);
 
-  // A sensor that stops broadcasting should leave the list, not linger
-  // as a tappable entry that can only produce a hung connect attempt.
+  // A sensor that stops broadcasting greys out rather than vanishing;
+  // its row revives on the next advertisement (ids are stable per
+  // phone, so it can never re-appear as a duplicate).
   useEffect(() => {
     if (!scanning) return;
     const timer = setInterval(() => {
-      setDevices((prev) =>
-        prev.filter(
-          (d) => d.isDemo || Date.now() - (lastSeen.current[d.id] ?? 0) < DEVICE_TTL_MS,
-        ),
-      );
-    }, 3000);
+      setDevices((prev) => {
+        let changed = false;
+        const next = prev.map((d) => {
+          const stale =
+            !d.isDemo && Date.now() - (lastSeen.current[d.id] ?? 0) > DEVICE_STALE_MS;
+          if (stale === d.stale) return d;
+          changed = true;
+          return { ...d, stale };
+        });
+        return changed ? next : prev;
+      });
+    }, 2000);
     return () => clearInterval(timer);
   }, [scanning]);
 
@@ -134,6 +151,8 @@ export function useHeartRateApp(
   return {
     devices,
     scanning,
+    scanEnabled,
+    setScanEnabled,
     error,
     connectingId,
     connectedDevice,

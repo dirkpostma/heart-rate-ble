@@ -1,39 +1,54 @@
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
-import { DiscoveredDevice } from '../ble/HeartRateMonitor';
 import { VersionFooter } from '../components/VersionFooter';
+import { ScannedDevice } from '../hooks/useHeartRateApp';
 import { colors, spacing } from '../theme';
 
 interface Props {
-  devices: DiscoveredDevice[];
+  devices: ScannedDevice[];
   scanning: boolean;
+  scanEnabled: boolean;
+  onToggleScan: (enabled: boolean) => void;
   error: string | null;
   connectingId: string | null;
-  onSelect: (device: DiscoveredDevice) => void;
+  onSelect: (device: ScannedDevice) => void;
   onRescan: () => void;
 }
 
-export function ScanScreen({ devices, scanning, error, connectingId, onSelect, onRescan }: Props) {
+export function ScanScreen({
+  devices,
+  scanning,
+  scanEnabled,
+  onToggleScan,
+  error,
+  connectingId,
+  onSelect,
+  onRescan,
+}: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Heart Rate BLE</Text>
       <View style={styles.statusRow}>
-        {scanning && <ActivityIndicator size="small" color={colors.accent} />}
         <Text style={styles.statusText}>
-          {scanning ? 'Scanning for heart-rate sensors…' : 'Scan stopped'}
+          {scanEnabled
+            ? scanning
+              ? 'Scanning for heart-rate sensors'
+              : 'Waiting for Bluetooth…'
+            : 'Scanning paused'}
         </Text>
-        {!scanning && (
-          <Pressable onPress={onRescan} hitSlop={spacing.sm}>
-            <Text style={styles.rescan}>Scan again</Text>
-          </Pressable>
-        )}
+        <Switch
+          value={scanEnabled}
+          onValueChange={onToggleScan}
+          trackColor={{ true: colors.accent, false: colors.border }}
+          thumbColor="#FFFFFF"
+        />
       </View>
       {error && <Text style={styles.error}>{error}</Text>}
       <FlatList
@@ -41,22 +56,26 @@ export function ScanScreen({ devices, scanning, error, connectingId, onSelect, o
         keyExtractor={(d) => d.id}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl
-            refreshing={false}
-            onRefresh={onRescan}
-            tintColor={colors.accent}
-          />
+          <RefreshControl refreshing={false} onRefresh={onRescan} tintColor={colors.accent} />
         }
         renderItem={({ item }) => (
           <Pressable
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            style={({ pressed }) => [
+              styles.row,
+              item.stale && styles.rowStale,
+              pressed && styles.rowPressed,
+            ]}
             onPress={() => onSelect(item)}
-            disabled={connectingId !== null}
+            disabled={connectingId !== null || item.stale}
           >
             <View style={styles.rowText}>
               <Text style={styles.deviceName}>{item.name}</Text>
               <Text style={styles.deviceMeta}>
-                {item.isDemo ? 'Synthetic heart rate — no hardware needed' : `RSSI ${item.rssi ?? '—'} dBm`}
+                {item.isDemo
+                  ? 'Synthetic heart rate — no hardware needed'
+                  : item.stale
+                    ? 'Not broadcasting — reappears automatically'
+                    : `RSSI ${item.rssi ?? '—'} dBm`}
               </Text>
             </View>
             {item.isDemo && (
@@ -64,14 +83,14 @@ export function ScanScreen({ devices, scanning, error, connectingId, onSelect, o
                 <Text style={styles.badgeText}>DEMO</Text>
               </View>
             )}
-            {connectingId === item.id && (
-              <ActivityIndicator size="small" color={colors.accent} />
-            )}
+            {connectingId === item.id && <Text style={styles.connecting}>connecting…</Text>}
           </Pressable>
         )}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            No sensors yet. Put your watch in Broadcast Heart Rate mode and keep it close.
+            {scanEnabled
+              ? 'No sensors yet. Put your watch in Broadcast Heart Rate mode and keep it close.'
+              : 'Scanning is off. Flip the switch to look for sensors.'}
           </Text>
         }
       />
@@ -95,18 +114,13 @@ const styles = StyleSheet.create({
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'space-between',
     marginTop: spacing.md,
     marginBottom: spacing.md,
   },
   statusText: {
     color: colors.textDim,
     fontSize: 14,
-  },
-  rescan: {
-    color: colors.accent,
-    fontSize: 14,
-    fontWeight: '600',
   },
   error: {
     color: colors.warning,
@@ -125,6 +139,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: spacing.md,
     gap: spacing.sm,
+  },
+  rowStale: {
+    opacity: 0.45,
   },
   rowPressed: {
     backgroundColor: colors.border,
@@ -153,6 +170,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  connecting: {
+    color: colors.accent,
+    fontSize: 13,
   },
   empty: {
     color: colors.textDim,

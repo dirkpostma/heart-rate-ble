@@ -34,6 +34,8 @@ export default function App() {
           <ScanScreen
             devices={app.devices}
             scanning={app.scanning}
+            scanEnabled={app.scanEnabled}
+            onToggleScan={app.setScanEnabled}
             error={app.error}
             connectingId={app.connectingId}
             onSelect={app.connect}
