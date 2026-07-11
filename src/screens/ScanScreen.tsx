@@ -8,30 +8,19 @@ import {
   View,
 } from 'react-native';
 import { VersionFooter } from '../components/VersionFooter';
-import { ScannedDevice } from '../hooks/useHeartRateApp';
+import { useHeartRate } from '../store/appStore';
 import { colors, spacing } from '../theme';
 
-interface Props {
-  devices: ScannedDevice[];
-  scanning: boolean;
-  scanEnabled: boolean;
-  onToggleScan: (enabled: boolean) => void;
-  error: string | null;
-  connectingId: string | null;
-  onSelect: (device: ScannedDevice) => void;
-  onRescan: () => void;
-}
+export function ScanScreen() {
+  const devices = useHeartRate((state) => state.devices);
+  const scanning = useHeartRate((state) => state.scanning);
+  const scanEnabled = useHeartRate((state) => state.scanEnabled);
+  const error = useHeartRate((state) => state.error);
+  const connectingId = useHeartRate((state) => state.connectingId);
+  const onToggleScan = useHeartRate((state) => state.setScanEnabled);
+  const onSelect = useHeartRate((state) => state.connect);
+  const onRescan = useHeartRate((state) => state.rescan);
 
-export function ScanScreen({
-  devices,
-  scanning,
-  scanEnabled,
-  onToggleScan,
-  error,
-  connectingId,
-  onSelect,
-  onRescan,
-}: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Heart Rate BLE</Text>

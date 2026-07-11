@@ -1,15 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ConnectionState, HeartRateSample } from '../ble/HeartRateMonitor';
+import { ConnectionState } from '../ble/HeartRateMonitor';
 import { PulsingHeart } from '../components/PulsingHeart';
+import { useHeartRate } from '../store/appStore';
 import { colors, spacing } from '../theme';
-
-interface Props {
-  deviceName: string;
-  connectionState: ConnectionState;
-  sample: HeartRateSample | null;
-  onDisconnect: () => void;
-}
 
 const STATE_LABEL: Record<ConnectionState, string> = {
   disconnected: 'Disconnected',
@@ -22,7 +16,12 @@ const STATE_LABEL: Record<ConnectionState, string> = {
 // silence — not just disconnection — must surface in the UI.
 const STALE_AFTER_MS = 5000;
 
-export function LiveScreen({ deviceName, connectionState, sample, onDisconnect }: Props) {
+export function LiveScreen() {
+  const deviceName = useHeartRate((state) => state.connectedDevice?.name ?? '');
+  const connectionState = useHeartRate((state) => state.connectionState);
+  const sample = useHeartRate((state) => state.sample);
+  const onDisconnect = useHeartRate((state) => state.disconnect);
+
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
