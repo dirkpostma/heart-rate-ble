@@ -101,7 +101,9 @@ export class BleHeartRateMonitor implements HeartRateMonitor {
     onDevice: (device: DiscoveredDevice) => void,
     onError: (error: Error) => void,
   ): void {
-    this.manager.startDeviceScan([HEART_RATE_SERVICE], null, (error, device) => {
+    // allowDuplicates keeps advertisements flowing per device, so the UI
+    // can refresh RSSI and expire sensors that stop broadcasting.
+    this.manager.startDeviceScan([HEART_RATE_SERVICE], { allowDuplicates: true }, (error, device) => {
       if (error) {
         onError(error);
         return;

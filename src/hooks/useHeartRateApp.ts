@@ -6,6 +6,8 @@ import {
   HeartRateSample,
 } from '../ble/HeartRateMonitor';
 
+const DEVICE_TTL_MS = 12000;
+
 interface HeartRateApp {
   devices: DiscoveredDevice[];
   scanning: boolean;
@@ -36,6 +38,7 @@ export function useHeartRateApp(
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [sample, setSample] = useState<HeartRateSample | null>(null);
   const activeMonitor = useRef<HeartRateMonitor | null>(null);
+  const lastSeen = useRef<Record<string, number>>({});
 
   const startScanning = useCallback(() => {
     setDevices([]);
@@ -43,12 +46,14 @@ export function useHeartRateApp(
     setScanning(true);
     scanSources.forEach((source) =>
       source.startScan(
-        (device) =>
+        (device) => {
+          lastSeen.current[device.id] = Date.now();
           setDevices((prev) =>
             prev.some((d) => d.id === device.id)
               ? prev.map((d) => (d.id === device.id ? device : d))
               : [...prev, device],
-          ),
+          );
+        },
         (scanError) => {
           setScanning(false);
           setError(scanError.message);
@@ -66,6 +71,20 @@ export function useHeartRateApp(
     startScanning();
     return stopScanning;
   }, [startScanning, stopScanning]);
+
+  // A sensor that stops broadcasting should leave the list, not linger
+  // as a tappable entry that can only produce a hung connect attempt.
+  useEffect(() => {
+    if (!scanning) return;
+    const timer = setInterval(() => {
+      setDevices((prev) =>
+        prev.filter(
+          (d) => d.isDemo || Date.now() - (lastSeen.current[d.id] ?? 0) < DEVICE_TTL_MS,
+        ),
+      );
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [scanning]);
 
   const connect = useCallback(
     async (device: DiscoveredDevice) => {
