@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { BleHeartRateMonitor } from './src/ble/BleHeartRateMonitor';
+import { UpdateBanner } from './src/components/UpdateBanner';
 import { FakeHeartRateMonitor } from './src/ble/FakeHeartRateMonitor';
 import { DiscoveredDevice } from './src/ble/HeartRateMonitor';
 import { useHeartRateApp } from './src/hooks/useHeartRateApp';
@@ -23,6 +24,7 @@ export default function App() {
     <SafeAreaProvider>
       <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
         <StatusBar barStyle="light-content" />
+        <UpdateBanner />
         {app.connectedDevice ? (
           <LiveScreen
             deviceName={app.connectedDevice.name}
