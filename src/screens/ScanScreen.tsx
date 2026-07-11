@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { DiscoveredDevice } from '../ble/HeartRateMonitor';
+import { VersionFooter } from '../components/VersionFooter';
 import { colors, spacing } from '../theme';
 
 interface Props {
@@ -74,6 +75,7 @@ export function ScanScreen({ devices, scanning, error, connectingId, onSelect, o
           </Text>
         }
       />
+      <VersionFooter />
     </View>
   );
 }

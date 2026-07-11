@@ -43,6 +43,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/withFmtXcode26Fix.js",
       [
         "react-native-ble-plx",
         {
