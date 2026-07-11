@@ -7,8 +7,10 @@ import {
 } from '../ble/HeartRateMonitor';
 
 // A broadcasting watch advertises several times per second regardless
-// of heart rate, so 5s of silence is already ~10+ missed advertisements.
-const DEVICE_STALE_MS = 5000;
+// of heart rate, but iOS scans with a duty cycle, so occasional 1s+
+// callback gaps are normal. 3s balances fast detection against false
+// grey-outs; 2s was measured too close to those gaps (visible flicker).
+const DEVICE_STALE_MS = 3000;
 
 export type ScannedDevice = DiscoveredDevice & {
   /** true when the sensor hasn't advertised recently — shown greyed out */
