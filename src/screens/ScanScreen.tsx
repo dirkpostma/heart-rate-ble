@@ -74,7 +74,9 @@ export function ScanScreen({
                 {item.isDemo
                   ? 'Synthetic heart rate — no hardware needed'
                   : item.stale
-                    ? 'Not broadcasting — reappears automatically'
+                    ? scanEnabled
+                      ? 'Not broadcasting — reappears automatically'
+                      : 'Not broadcasting — scanning is off'
                     : `RSSI ${item.rssi ?? '—'} dBm`}
               </Text>
             </View>
