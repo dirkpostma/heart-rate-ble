@@ -67,10 +67,14 @@ export function useHeartRateApp(
     setScanning(false);
   }, [scanSources]);
 
+  // One rule owns the scan lifecycle: scanning runs exactly while the
+  // scan screen is showing (nothing connected or connecting).
   useEffect(() => {
-    startScanning();
-    return stopScanning;
-  }, [startScanning, stopScanning]);
+    if (connectedDevice === null && connectingId === null) {
+      startScanning();
+      return stopScanning;
+    }
+  }, [connectedDevice, connectingId, startScanning, stopScanning]);
 
   // A sensor that stops broadcasting should leave the list, not linger
   // as a tappable entry that can only produce a hung connect attempt.
@@ -100,11 +104,9 @@ export function useHeartRateApp(
           activeMonitor.current = null;
           setConnectedDevice(null);
           setSample(null);
-          startScanning();
         }
       });
       try {
-        stopScanning();
         await monitor.connect(device.id);
         activeMonitor.current = monitor;
         setConnectedDevice(device);
@@ -113,12 +115,11 @@ export function useHeartRateApp(
         offState();
         setError(connectError instanceof Error ? connectError.message : String(connectError));
         setConnectionState('disconnected');
-        startScanning();
       } finally {
         setConnectingId(null);
       }
     },
-    [monitorFor, startScanning, stopScanning],
+    [monitorFor],
   );
 
   const disconnect = useCallback(() => {
