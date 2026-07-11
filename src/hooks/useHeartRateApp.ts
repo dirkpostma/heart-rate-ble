@@ -6,7 +6,9 @@ import {
   HeartRateSample,
 } from '../ble/HeartRateMonitor';
 
-const DEVICE_STALE_MS = 10000;
+// A broadcasting watch advertises several times per second regardless
+// of heart rate, so 5s of silence is already ~10+ missed advertisements.
+const DEVICE_STALE_MS = 5000;
 
 export type ScannedDevice = DiscoveredDevice & {
   /** true when the sensor hasn't advertised recently — shown greyed out */
@@ -103,7 +105,7 @@ export function useHeartRateApp(
         });
         return changed ? next : prev;
       });
-    }, 2000);
+    }, 1000);
     return () => clearInterval(timer);
   }, [scanning]);
 
