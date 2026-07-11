@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ConnectionState, HeartRateSample } from '../ble/HeartRateMonitor';
 import { PulsingHeart } from '../components/PulsingHeart';
@@ -17,9 +18,21 @@ const STATE_LABEL: Record<ConnectionState, string> = {
   reconnecting: 'Reconnecting…',
 };
 
+// Garmin broadcast can stop sending without dropping the BLE link, so
+// silence — not just disconnection — must surface in the UI.
+const STALE_AFTER_MS = 5000;
+
 export function LiveScreen({ deviceName, connectionState, sample, onDisconnect }: Props) {
-  const bpm = sample && sample.bpm > 0 ? sample.bpm : null;
-  const acquiring = connectionState === 'connected' && bpm === null;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const stale =
+    connectionState === 'connected' && sample !== null && now - sample.timestamp > STALE_AFTER_MS;
+  const bpm = !stale && sample && sample.bpm > 0 ? sample.bpm : null;
+  const acquiring = connectionState === 'connected' && !stale && bpm === null;
 
   return (
     <View style={styles.container}>
@@ -29,10 +42,15 @@ export function LiveScreen({ deviceName, connectionState, sample, onDisconnect }
           <View
             style={[
               styles.stateDot,
-              { backgroundColor: connectionState === 'connected' ? colors.success : colors.warning },
+              {
+                backgroundColor:
+                  connectionState === 'connected' && !stale ? colors.success : colors.warning,
+              },
             ]}
           />
-          <Text style={styles.stateText}>{STATE_LABEL[connectionState]}</Text>
+          <Text style={styles.stateText}>
+            {stale ? 'Connected — no signal' : STATE_LABEL[connectionState]}
+          </Text>
         </View>
       </View>
 
@@ -42,7 +60,12 @@ export function LiveScreen({ deviceName, connectionState, sample, onDisconnect }
         <Text style={styles.bpmUnit}>
           {acquiring ? 'acquiring signal…' : 'beats per minute'}
         </Text>
-        {sample?.sensorContact === false && (
+        {stale && (
+          <Text style={styles.contactHint}>
+            Signal lost — is the watch still broadcasting heart rate?
+          </Text>
+        )}
+        {!stale && sample?.sensorContact === false && (
           <Text style={styles.contactHint}>No sensor contact — check the strap or watch fit</Text>
         )}
       </View>
