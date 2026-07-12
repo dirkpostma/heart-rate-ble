@@ -5,8 +5,11 @@ import { PulsingHeart } from '../components/PulsingHeart';
 import { useHeartRate } from '../store/appStore';
 import { colors, spacing } from '../theme';
 
+// 'disconnected' while this screen is still showing means the monitor
+// reported the drop (user-initiated disconnects navigate away): the
+// lost end state of #30.
 const STATE_LABEL: Record<ConnectionState, string> = {
-  disconnected: 'Disconnected',
+  disconnected: 'Connection lost',
   connecting: 'Connecting…',
   connected: 'Connected',
   reconnecting: 'Reconnecting…',
@@ -28,6 +31,7 @@ export function LiveScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  const lost = connectionState === 'disconnected';
   const stale =
     connectionState === 'connected' && sample !== null && now - sample.timestamp > STALE_AFTER_MS;
   const bpm = !stale && sample && sample.bpm > 0 ? sample.bpm : null;
@@ -55,16 +59,21 @@ export function LiveScreen() {
 
       <View style={styles.center}>
         <PulsingHeart bpm={connectionState === 'connected' ? bpm : null} />
-        <Text style={styles.bpm}>{bpm ?? '—'}</Text>
+        <Text style={[styles.bpm, lost && styles.bpmLost]}>{bpm ?? '—'}</Text>
         <Text style={styles.bpmUnit}>
-          {acquiring ? 'acquiring signal…' : 'beats per minute'}
+          {acquiring ? 'acquiring signal…' : lost ? 'last reading' : 'beats per minute'}
         </Text>
+        {lost && (
+          <Text style={styles.contactHint}>
+            Connection lost — the device is no longer reachable
+          </Text>
+        )}
         {stale && (
           <Text style={styles.contactHint}>
             Signal lost — is the watch still broadcasting heart rate?
           </Text>
         )}
-        {!stale && sample?.sensorContact === false && (
+        {!stale && !lost && sample?.sensorContact === false && (
           <Text style={styles.contactHint}>No sensor contact — check the strap or watch fit</Text>
         )}
       </View>
@@ -73,7 +82,7 @@ export function LiveScreen() {
         style={({ pressed }) => [styles.disconnect, pressed && styles.disconnectPressed]}
         onPress={onDisconnect}
       >
-        <Text style={styles.disconnectText}>Disconnect</Text>
+        <Text style={styles.disconnectText}>{lost ? 'Back to devices' : 'Disconnect'}</Text>
       </Pressable>
     </View>
   );
@@ -121,6 +130,9 @@ const styles = StyleSheet.create({
     fontSize: 104,
     fontWeight: '200',
     fontVariant: ['tabular-nums'],
+  },
+  bpmLost: {
+    color: colors.textDim,
   },
   bpmUnit: {
     color: colors.textDim,

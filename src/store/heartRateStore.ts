@@ -50,6 +50,11 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
   // observed during scan fan-out, not a question to ask sources (#16).
   const sourceOf = new Map<string, HeartRateMonitor>();
   let activeMonitor: HeartRateMonitor | null = null;
+  // Distinguishes the user tapping Disconnect from the monitor reporting
+  // a drop (retries exhausted, demo device dismissed): only the former
+  // leaves the live screen; the latter becomes its "Connection lost"
+  // end state (#30).
+  let userDisconnect = false;
   let staleTimer: ReturnType<typeof setInterval> | null = null;
   let destroyed = false;
 
@@ -156,8 +161,14 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
         offSample();
         offState();
         activeMonitor = null;
-        store.setState({ connectedDevice: null, sample: null });
-        syncScan();
+        // A monitor-reported drop keeps the device and last sample so
+        // the live screen can show what died and its final reading;
+        // disconnect() doubles as the way out.
+        if (userDisconnect) {
+          userDisconnect = false;
+          store.setState({ connectedDevice: null, sample: null });
+          syncScan();
+        }
       }
     });
     try {
@@ -177,8 +188,15 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
     }
   }
 
+  // Also the "Back to devices" acknowledgment from the lost state, where
+  // no monitor is active anymore and the state just needs clearing.
   function disconnect(): void {
-    activeMonitor?.disconnect();
+    if (activeMonitor) {
+      userDisconnect = true;
+      activeMonitor.disconnect();
+    } else {
+      store.setState({ connectedDevice: null, sample: null });
+    }
     syncScan();
   }
 
@@ -189,6 +207,7 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
 
   function destroy(): void {
     destroyed = true;
+    userDisconnect = true;
     activeMonitor?.disconnect();
     activeMonitor = null;
     stopScanning();
