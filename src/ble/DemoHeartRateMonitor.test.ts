@@ -31,9 +31,10 @@ describe('DemoHeartRateMonitor', () => {
     await connecting;
   };
 
-  it('names summoned devices Demo HRM 1, 2, …', () => {
-    expect(monitor.summon().name).toBe('Demo HRM 1');
-    expect(monitor.summon().name).toBe('Demo HRM 2');
+  it('bakes the profile into the name: Demo Resting 1, Demo Workout 2, …', () => {
+    expect(monitor.summon().name).toBe('Demo Resting 1');
+    expect(monitor.summon('workout').name).toBe('Demo Workout 2');
+    expect(monitor.summon('dropout').name).toBe('Demo Dropout 3');
   });
 
   it('advertises each device about once a second while a scan is active', () => {

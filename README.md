@@ -19,8 +19,8 @@ against real hardware.*
 *Broadcast Heart Rate*), open the app, tap the sensor when it appears.
 Distribution is via TestFlight (internal group).
 
-**Without hardware:** summon a demo device (**Demo HRM n**) — a virtual
-sensor that advertises and streams synthetic ~1 Hz heart rate through the
+**Without hardware:** summon a demo device (**Demo Workout n** — the name
+carries the profile) — a virtual sensor that advertises and streams synthetic ~1 Hz heart rate through the
 exact same interface and staleness rules as real hardware, so the full
 flow works on any simulator. Tap the faint dot in the bottom-right corner
 to open the demo panel: summon devices with a resting, workout or dropout

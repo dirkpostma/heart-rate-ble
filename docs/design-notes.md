@@ -20,7 +20,7 @@ Release builds on new arch — dotintent/react-native-ble-plx#1278).
 Everything BLE hides behind a four-method `HeartRateMonitor` interface:
 scan, connect, samples, connection state. The real implementation wraps
 ble-plx; a `DemoHeartRateMonitor` *is the product's demo mode* — summoned
-virtual devices ("Demo HRM n") that advertise at ~1 Hz with random-walk
+virtual devices named after their profile ("Demo Workout n") that advertise at ~1 Hz with random-walk
 RSSI and stream synthetic BPM, so every store rule (staleness included)
 applies to them unchanged. The store learns which source owns a device by
 observing who reported it during scanning — no flags on the device, no

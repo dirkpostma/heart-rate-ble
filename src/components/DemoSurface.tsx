@@ -1,14 +1,8 @@
 import { useState, useSyncExternalStore } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { DemoProfile } from '../ble/DemoHeartRateMonitor';
+import { DemoProfile, PROFILE_LABEL } from '../ble/DemoHeartRateMonitor';
 import { demoMonitor, useHeartRate } from '../store/appStore';
 import { colors, spacing } from '../theme';
-
-const PROFILE_LABEL: Record<DemoProfile, string> = {
-  resting: 'Resting',
-  workout: 'Workout',
-  dropout: 'Dropout',
-};
 
 /**
  * The demo control surface (issues #17/#19): a faint dot in the corner

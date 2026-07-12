@@ -8,7 +8,7 @@ import {
 import { createHeartRateStore, DEVICE_STALE_MS, HeartRateStore } from './heartRateStore';
 
 const GARMIN: DiscoveredDevice = { id: 'garmin-1', name: 'Forerunner', rssi: -60 };
-const DEMO_HRM: DiscoveredDevice = { id: 'demo-hrm-1', name: 'Demo HRM 1', rssi: -58 };
+const DEMO_HRM: DiscoveredDevice = { id: 'demo-hrm-1', name: 'Demo Resting 1', rssi: -58 };
 
 /**
  * Hand-driven HeartRateMonitor: tests advertise devices, emit samples

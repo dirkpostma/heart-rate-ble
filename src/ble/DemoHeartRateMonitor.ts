@@ -22,6 +22,18 @@ const RSSI_MAX = -30;
 /** What kind of heart the virtual sensor pretends to have (issue #17). */
 export type DemoProfile = 'resting' | 'workout' | 'dropout';
 
+/**
+ * Human-readable profile names. Baked into the device name at summon
+ * time (issue #22) so the scan list, live screen and demo panel can all
+ * tell resting / workout / dropout apart with no extra plumbing — the
+ * name travels in the advertisement, like real hardware.
+ */
+export const PROFILE_LABEL: Record<DemoProfile, string> = {
+  resting: 'Resting',
+  workout: 'Workout',
+  dropout: 'Dropout',
+};
+
 const PROFILES: Record<DemoProfile, { start: number; min: number; max: number; step: number }> = {
   resting: { start: 62, min: 55, max: 75, step: 2 },
   workout: { start: 142, min: 95, max: 175, step: 6 },
@@ -126,7 +138,7 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
     this.counter += 1;
     const device: VirtualDevice = {
       id: `demo-hrm-${this.counter}`,
-      name: `Demo HRM ${this.counter}`,
+      name: `Demo ${PROFILE_LABEL[profile]} ${this.counter}`,
       profile,
       advertising: true,
       rssi: RSSI_START,
