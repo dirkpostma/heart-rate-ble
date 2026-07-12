@@ -67,7 +67,7 @@ bundle so it's always clear what's actually running.
 
 ## Scope
 
-Recreating HeartR's *core loop* only. Cut deliberately: picture-in-picture
+The *core loop* only. Cut deliberately: picture-in-picture
 (needs a risky native module), charts/zones/history, Android verification,
 component tests and CI. Kept narrow instead: TypeScript throughout, the
 BLE seam, store unit tests, and end-to-end verification on real hardware.

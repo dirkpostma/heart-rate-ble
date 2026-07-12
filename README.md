@@ -1,8 +1,8 @@
 # Heart Rate BLE
 
 Live heart rate from any standard Bluetooth Low Energy heart-rate sensor — a
-React Native (Expo) recreation of the core loop of *HeartR – Bluetooth Heart
-Rate*, verified end-to-end with a Garmin watch broadcasting heart rate.
+React Native (Expo) app, verified end-to-end with a Garmin watch
+broadcasting heart rate.
 
 <p>
   <img src="docs/screenshots/scan.png" width="280" alt="Scan screen: sensor list with demo sensor" />
@@ -87,3 +87,65 @@ answer recorded on the ticket. Claude (Claude Code) drove research,
 implementation and releases; the human set direction, made the calls on the
 tickets, and verified everything on real hardware. The map's
 "Decisions so far" index is the project's memory.
+
+## Contributing
+
+The process above isn't just history — it's how the project keeps working.
+The code shows *what*; the record shows *why*. Contributions are welcome as
+long as both stay true.
+
+**Read the record before changing things.** Every non-obvious choice in
+this codebase was settled on a ticket, with the reasoning in a resolution
+comment. Start at the map's
+[Decisions so far](https://github.com/dirkpostma/heart-rate-ble/issues/1)
+index and follow the link; if a decision looks wrong, argue with the ticket
+that made it, not with a silent revert.
+
+Where the documentation lives:
+
+| What | Where |
+|---|---|
+| Decision index | The [wayfinder map](https://github.com/dirkpostma/heart-rate-ble/issues/1) — one line per closed ticket |
+| Full reasoning per decision | Resolution comments on the closed tickets under the map |
+| Design rationale (narrative) | [docs/design-notes.md](docs/design-notes.md) |
+| Research summaries | [docs/research/](docs/research/) (BLE profile, Expo + ble-plx setup) |
+| UI prototypes | [docs/prototype/](docs/prototype/) |
+| Instructions for coding agents | [AGENTS.md](AGENTS.md) (loaded by Claude Code via CLAUDE.md) |
+
+**To propose a change**, open an issue framed as the *question* it resolves
+rather than a finished solution — that's the shape every decision here
+already has. If it overturns an earlier decision, link the ticket that made
+it and say what changed. Small obvious fixes can skip straight to a PR.
+
+**Which process, when.** The workflow here comes from
+[Matt Pocock's skills](https://github.com/mattpocock/skills); match the
+weight of the process to the fog, not the size of the diff:
+
+- **`/wayfinder`** — for work too big for one agent session *and* whose
+  route is still foggy: several interdependent decisions, no clear order.
+  It charts a map and resolves one decision per ticket. This project's
+  [map](https://github.com/dirkpostma/heart-rate-ble/issues/1) came from
+  exactly that.
+- **A single skill session** — when there's one sharp question:
+  `/grilling` to stress-test an idea, `/research` when the answer lives
+  outside the repo, `/prototype` when "how should it look or behave" is
+  the question. The answer still lands on an issue.
+- **No process** — a small fix, a docs tweak, a rename: just do it and
+  open a PR. A map for a one-decision change is overkill; the record it
+  would produce is the diff itself.
+
+**Working with an agent is the norm here, not the exception.** Whether you
+drive Claude Code or type by hand, the bar is the same: the diff carries
+the change, the issue carries the decision and its why. An agent session
+that lands code without leaving a record has done half the job.
+
+Practical guardrails:
+
+- `npm test` must pass; the timing rules live in the store and are tested
+  with fake timers and an injected fake monitor — extend that suite rather
+  than adding a mocking framework.
+- Respect the two load-bearing pins (SDK 54, old architecture) — see
+  [Development](#development) for why.
+- JS-only changes ship over the air with `eas update`; anything touching
+  native code or config needs a new EAS build. Builds are deliberate and
+  quota-limited — flag the need in the issue instead of assuming one.
