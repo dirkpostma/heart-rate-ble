@@ -222,10 +222,10 @@ describe('createHeartRateStore', () => {
       expect(multiStore.getState().connectedDevice).toEqual(DEMO_HRM);
     });
 
-    it('sets the error state for a device no source reported', async () => {
+    it('sets the connect error for a device no source reported', async () => {
       await multiStore.getState().connect(GARMIN);
 
-      expect(multiStore.getState().error).toContain('Forerunner');
+      expect(multiStore.getState().connectError).toContain('Forerunner');
       expect(multiStore.getState().connectingId).toBeNull();
       expect(multiStore.getState().connectedDevice).toBeNull();
       expect(multiStore.getState().scanning).toBe(true);
@@ -247,10 +247,14 @@ describe('createHeartRateStore', () => {
   });
 
   describe('connect failure', () => {
-    it('cleans up: state reset, listeners detached, scanning resumed', async () => {
+    const failNextConnect = (message: string) => {
       monitor.connectImpl = async () => {
-        throw new Error('Connection timed out');
+        throw new Error(message);
       };
+    };
+
+    it('cleans up: state reset, listeners detached, scanning resumed', async () => {
+      failNextConnect('Connection timed out');
 
       await connectTo(GARMIN);
 
@@ -262,6 +266,50 @@ describe('createHeartRateStore', () => {
       // detached listeners: a late sample from the failed monitor is ignored
       monitor.emitSample(80);
       expect(store.getState().sample).toBeNull();
+    });
+
+    // #13: the failure reason must survive the scan restart that follows
+    // a failed attempt — startScanning used to wipe `error` before the
+    // scan screen ever rendered it.
+    it('surfaces the failure reason past the scan restart', async () => {
+      failNextConnect('Connection timed out');
+
+      await connectTo(GARMIN);
+
+      expect(monitor.scanning).toBe(true);
+      expect(store.getState().connectError).toBe(
+        'Couldn’t connect to Forerunner: Connection timed out',
+      );
+    });
+
+    it('clears the failure when the next connect attempt starts', async () => {
+      failNextConnect('Connection timed out');
+      await connectTo(GARMIN);
+
+      monitor.connectImpl = async () => {};
+      await connectTo(GARMIN);
+
+      expect(store.getState().connectError).toBeNull();
+      expect(store.getState().connectedDevice).toEqual(GARMIN);
+    });
+
+    it('dismisses the failure on pull-to-refresh', async () => {
+      failNextConnect('Connection timed out');
+      await connectTo(GARMIN);
+
+      store.getState().rescan();
+
+      expect(store.getState().connectError).toBeNull();
+    });
+
+    it('keeps the failure visible across a scan toggle', async () => {
+      failNextConnect('Connection timed out');
+      await connectTo(GARMIN);
+
+      store.getState().setScanEnabled(false);
+      store.getState().setScanEnabled(true);
+
+      expect(store.getState().connectError).toContain('Forerunner');
     });
   });
 

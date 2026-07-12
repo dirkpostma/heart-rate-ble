@@ -16,6 +16,7 @@ export function ScanScreen() {
   const scanning = useHeartRate((state) => state.scanning);
   const scanEnabled = useHeartRate((state) => state.scanEnabled);
   const error = useHeartRate((state) => state.error);
+  const connectError = useHeartRate((state) => state.connectError);
   const connectingId = useHeartRate((state) => state.connectingId);
   const onToggleScan = useHeartRate((state) => state.setScanEnabled);
   const onSelect = useHeartRate((state) => state.connect);
@@ -40,6 +41,7 @@ export function ScanScreen() {
         />
       </View>
       {error && <Text style={styles.error}>{error}</Text>}
+      {connectError && <Text style={styles.error}>{connectError}</Text>}
       <FlatList
         data={devices}
         keyExtractor={(d) => d.id}
