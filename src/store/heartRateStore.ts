@@ -98,9 +98,11 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
               : [...state.devices, seen],
           }));
         },
+        // One source failing (e.g. BLE on a simulator) must not kill the
+        // session for the others: the error is surfaced, scanning and the
+        // staleness ticker keep running for the sources still alive.
         (scanError) => {
-          stopStaleTicker();
-          store.setState({ scanning: false, error: scanError.message });
+          store.setState({ error: scanError.message });
         },
       ),
     );

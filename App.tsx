@@ -1,5 +1,6 @@
 import { StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { DemoSurface } from './src/components/DemoSurface';
 import { UpdateBanner } from './src/components/UpdateBanner';
 import { LiveScreen } from './src/screens/LiveScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
@@ -15,6 +16,7 @@ export default function App() {
         <StatusBar barStyle="light-content" />
         <UpdateBanner />
         {connected ? <LiveScreen /> : <ScanScreen />}
+        <DemoSurface />
       </SafeAreaView>
     </SafeAreaProvider>
   );

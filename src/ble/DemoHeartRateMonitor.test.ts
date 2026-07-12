@@ -105,6 +105,89 @@ describe('DemoHeartRateMonitor', () => {
     expect(states[states.length - 1]).toBe('disconnected');
   });
 
+  it('walks workout BPM inside its erratic range', async () => {
+    const device = monitor.summon('workout');
+    const samples: number[] = [];
+    monitor.onSample((sample) => samples.push(sample.bpm));
+
+    await connectTo(device.id);
+    jest.advanceTimersByTime(30_000);
+
+    expect(samples.length).toBeGreaterThan(0);
+    samples.forEach((bpm) => {
+      expect(bpm).toBeGreaterThanOrEqual(95);
+      expect(bpm).toBeLessThanOrEqual(175);
+    });
+  });
+
+  it('dropout profile goes quiet for 5 of every 25 advertising ticks', () => {
+    startScan();
+    monitor.summon('dropout');
+
+    advertised = [];
+    jest.advanceTimersByTime(25_000);
+
+    expect(advertised).toHaveLength(20);
+  });
+
+  it('dropout profile pauses samples during its quiet window while connected', async () => {
+    const device = monitor.summon('dropout');
+    const samples: number[] = [];
+    monitor.onSample((sample) => samples.push(sample.bpm));
+
+    await connectTo(device.id);
+    jest.advanceTimersByTime(25_000);
+
+    expect(samples).toHaveLength(20);
+  });
+
+  it('dropConnection dips through reconnecting and recovers with samples', async () => {
+    const device = monitor.summon();
+    const samples: number[] = [];
+    monitor.onSample((sample) => samples.push(sample.bpm));
+    await connectTo(device.id);
+
+    monitor.dropConnection();
+    expect(states[states.length - 1]).toBe('reconnecting');
+
+    const during = samples.length;
+    jest.advanceTimersByTime(2000);
+    expect(samples).toHaveLength(during); // silent while "down"
+
+    jest.advanceTimersByTime(1000);
+    expect(states[states.length - 1]).toBe('connected');
+    jest.advanceTimersByTime(2000);
+    expect(samples.length).toBeGreaterThan(during);
+  });
+
+  it('disconnect during a simulated drop stays disconnected', async () => {
+    const device = monitor.summon();
+    await connectTo(device.id);
+
+    monitor.dropConnection();
+    await monitor.disconnect();
+    jest.advanceTimersByTime(10_000);
+
+    expect(states[states.length - 1]).toBe('disconnected');
+  });
+
+  it('reports device snapshots to the surface as they change', () => {
+    const changes: number[] = [];
+    monitor.onDevicesChanged(() => changes.push(monitor.getDevices().length));
+
+    const device = monitor.summon('workout');
+    expect(monitor.getDevices()).toEqual([
+      { id: device.id, name: device.name, profile: 'workout', advertising: true },
+    ]);
+
+    monitor.setAdvertising(device.id, false);
+    expect(monitor.getDevices()[0].advertising).toBe(false);
+
+    monitor.dismiss(device.id);
+    expect(monitor.getDevices()).toEqual([]);
+    expect(changes).toEqual([1, 1, 0]);
+  });
+
   it('rejects a connect to a device that does not exist', async () => {
     await expect(monitor.connect('demo-hrm-99')).rejects.toThrow('does not exist');
   });

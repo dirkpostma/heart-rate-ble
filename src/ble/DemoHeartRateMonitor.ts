@@ -11,6 +11,7 @@ import {
 const ADVERTISE_INTERVAL_MS = 1000;
 const SAMPLE_INTERVAL_MS = 1000;
 const CONNECT_DELAY_MS = 800;
+const RECONNECT_DELAY_MS = 3000;
 
 // RSSI random walk bounds: plausible for a sensor moving around a room.
 const RSSI_START = -60;
@@ -18,22 +19,48 @@ const RSSI_STEP = 2;
 const RSSI_MIN = -90;
 const RSSI_MAX = -30;
 
+/** What kind of heart the virtual sensor pretends to have (issue #17). */
+export type DemoProfile = 'resting' | 'workout' | 'dropout';
+
+const PROFILES: Record<DemoProfile, { start: number; min: number; max: number; step: number }> = {
+  resting: { start: 62, min: 55, max: 75, step: 2 },
+  workout: { start: 142, min: 95, max: 175, step: 6 },
+  dropout: { start: 71, min: 62, max: 80, step: 2 },
+};
+
+// The dropout profile goes silent for 5 ticks out of every 25 — long
+// enough to trip both silence rules (scan list 3 s, live screen 5 s),
+// short enough that the recovery also demos itself.
+const DROPOUT_PERIOD = 25;
+const DROPOUT_QUIET = 5;
+
+/** Snapshot of a virtual device for the demo surface. */
+export interface DemoDeviceInfo {
+  id: string;
+  name: string;
+  profile: DemoProfile;
+  advertising: boolean;
+}
+
 interface VirtualDevice {
   id: string;
   name: string;
+  profile: DemoProfile;
   advertising: boolean;
   rssi: number;
   bpm: number;
-  trend: number;
+  /** ticks since summoned; drives the dropout profile's silence cycle */
+  age: number;
 }
 
 /**
  * One monitor, N virtual devices (issue #16). Implements the unchanged
  * HeartRateMonitor interface toward the store; summon/dismiss/
- * setAdvertising are out-of-band controls for the demo surface. Devices
- * advertise on a cadence with a random-walk RSSI, so the store's generic
- * staleness rule applies to them unchanged — no isDemo special case.
- * Lifecycle is in-memory only: a restart starts with a clean slate.
+ * setAdvertising/dropConnection are out-of-band controls for the demo
+ * surface. Devices advertise on a cadence with a random-walk RSSI, so
+ * the store's generic staleness rule applies to them unchanged — no
+ * isDemo special case. Lifecycle is in-memory only: a restart starts
+ * with a clean slate.
  */
 export class DemoHeartRateMonitor implements HeartRateMonitor {
   private devices = new Map<string, VirtualDevice>();
@@ -44,8 +71,11 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
   private onDevice: ((device: DiscoveredDevice) => void) | null = null;
   private advertiseTimer: ReturnType<typeof setInterval> | null = null;
   private sampleTimer: ReturnType<typeof setInterval> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private sampleListeners = new Set<(sample: HeartRateSample) => void>();
   private stateListeners = new Set<(state: ConnectionState) => void>();
+  private deviceListeners = new Set<() => void>();
+  private snapshot: DemoDeviceInfo[] = [];
 
   startScan(
     onDevice: (device: DiscoveredDevice) => void,
@@ -68,13 +98,14 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
     await new Promise((resolve) => setTimeout(resolve, CONNECT_DELAY_MS));
     this.connectedId = deviceId;
     this.emitState('connected');
-    this.sampleTimer = setInterval(() => this.tickSample(), SAMPLE_INTERVAL_MS);
+    this.startSampleTimer();
   }
 
   async disconnect(): Promise<void> {
-    if (this.sampleTimer) {
-      clearInterval(this.sampleTimer);
-      this.sampleTimer = null;
+    this.stopSampleTimer();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
     this.connectedId = null;
     this.emitState('disconnected');
@@ -91,19 +122,21 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
   }
 
   /** Creates a virtual device; it advertises immediately if a scan is on. */
-  summon(): DiscoveredDevice {
+  summon(profile: DemoProfile = 'resting'): DiscoveredDevice {
     this.counter += 1;
     const device: VirtualDevice = {
       id: `demo-hrm-${this.counter}`,
       name: `Demo HRM ${this.counter}`,
+      profile,
       advertising: true,
       rssi: RSSI_START,
-      bpm: 72,
-      trend: 0,
+      bpm: PROFILES[profile].start,
+      age: 0,
     };
     this.devices.set(device.id, device);
     this.emitAdvertisement(device);
     this.syncAdvertiseTimer();
+    this.notifyDevicesChanged();
     return { id: device.id, name: device.name, rssi: device.rssi };
   }
 
@@ -112,6 +145,7 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
     if (this.connectedId === id) this.disconnect();
     this.devices.delete(id);
     this.syncAdvertiseTimer();
+    this.notifyDevicesChanged();
   }
 
   /**
@@ -124,6 +158,62 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
     device.advertising = on;
     if (on) this.emitAdvertisement(device);
     this.syncAdvertiseTimer();
+    this.notifyDevicesChanged();
+  }
+
+  /**
+   * Simulates a transient link loss on the connected device: samples
+   * stop, the app shows "Reconnecting…", and the link comes back on its
+   * own — the auto-reconnect story without real radio weather.
+   */
+  dropConnection(): void {
+    if (this.connectedId === null || this.reconnectTimer) return;
+    this.stopSampleTimer();
+    this.emitState('reconnecting');
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.connectedId === null) return; // disconnected while "down"
+      this.emitState('connected');
+      this.startSampleTimer();
+    }, RECONNECT_DELAY_MS);
+  }
+
+  /** Stable snapshot for the demo surface (useSyncExternalStore). */
+  getDevices(): DemoDeviceInfo[] {
+    return this.snapshot;
+  }
+
+  onDevicesChanged(listener: () => void): Unsubscribe {
+    this.deviceListeners.add(listener);
+    return () => this.deviceListeners.delete(listener);
+  }
+
+  private notifyDevicesChanged(): void {
+    this.snapshot = [...this.devices.values()].map((device) => ({
+      id: device.id,
+      name: device.name,
+      profile: device.profile,
+      advertising: device.advertising,
+    }));
+    this.deviceListeners.forEach((listener) => listener());
+  }
+
+  private startSampleTimer(): void {
+    this.sampleTimer ??= setInterval(() => this.tickSample(), SAMPLE_INTERVAL_MS);
+  }
+
+  private stopSampleTimer(): void {
+    if (this.sampleTimer) {
+      clearInterval(this.sampleTimer);
+      this.sampleTimer = null;
+    }
+  }
+
+  private dropoutQuiet(device: VirtualDevice): boolean {
+    return (
+      device.profile === 'dropout' &&
+      device.age % DROPOUT_PERIOD >= DROPOUT_PERIOD - DROPOUT_QUIET
+    );
   }
 
   private syncAdvertiseTimer(): void {
@@ -140,7 +230,8 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
 
   private tickAdvertise(): void {
     this.devices.forEach((device) => {
-      if (!device.advertising) return;
+      device.age += 1;
+      if (!device.advertising || this.dropoutQuiet(device)) return;
       const step = Math.round((Math.random() * 2 - 1) * RSSI_STEP);
       device.rssi = Math.max(RSSI_MIN, Math.min(RSSI_MAX, device.rssi + step));
       this.emitAdvertisement(device);
@@ -148,16 +239,17 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
   }
 
   private emitAdvertisement(device: VirtualDevice): void {
-    if (!this.onDevice || !device.advertising) return;
+    if (!this.onDevice || !device.advertising || this.dropoutQuiet(device)) return;
     this.onDevice({ id: device.id, name: device.name, rssi: device.rssi });
   }
 
   private tickSample(): void {
     const device = this.connectedId ? this.devices.get(this.connectedId) : undefined;
     if (!device) return;
-    // Random walk with a slowly changing trend, clamped to a resting range.
-    device.trend = Math.max(-1.5, Math.min(1.5, device.trend + (Math.random() - 0.5)));
-    device.bpm = Math.max(58, Math.min(104, device.bpm + device.trend + (Math.random() - 0.5) * 2));
+    device.age += 1;
+    if (this.dropoutQuiet(device)) return; // silence trips the live screen's 5 s rule
+    const { min, max, step } = PROFILES[device.profile];
+    device.bpm = Math.max(min, Math.min(max, device.bpm + (Math.random() * 2 - 1) * step));
     const sample: HeartRateSample = {
       bpm: Math.round(device.bpm),
       sensorContact: true,

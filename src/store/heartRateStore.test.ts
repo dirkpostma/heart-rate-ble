@@ -267,10 +267,16 @@ describe('createHeartRateStore', () => {
   });
 
   describe('scan errors', () => {
-    it('surfaces the error and stops the scanning flag', () => {
+    it('surfaces the error but keeps the session alive for other sources', () => {
+      monitor.advertise(GARMIN);
       monitor.failScan('Bluetooth is not available on this device');
-      expect(store.getState().scanning).toBe(false);
+
       expect(store.getState().error).toBe('Bluetooth is not available on this device');
+      expect(store.getState().scanning).toBe(true);
+
+      // the staleness ticker survives the error too
+      jest.advanceTimersByTime(DEVICE_STALE_MS + 1000);
+      expect(store.getState().devices[0].stale).toBe(true);
     });
   });
 });
