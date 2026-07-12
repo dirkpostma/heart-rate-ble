@@ -141,6 +141,22 @@ describe('DemoHeartRateMonitor', () => {
     expect(samples).toHaveLength(20);
   });
 
+  it('powering off the connected device silences samples without a goodbye', async () => {
+    const device = monitor.summon();
+    const samples: number[] = [];
+    monitor.onSample((sample) => samples.push(sample.bpm));
+    await connectTo(device.id);
+
+    monitor.setAdvertising(device.id, false);
+    jest.advanceTimersByTime(5000);
+    expect(samples).toHaveLength(0);
+    expect(states[states.length - 1]).toBe('connected'); // link stays up, like hardware
+
+    monitor.setAdvertising(device.id, true);
+    jest.advanceTimersByTime(2000);
+    expect(samples).toHaveLength(2);
+  });
+
   it('dropConnection dips through reconnecting and recovers with samples', async () => {
     const device = monitor.summon();
     const samples: number[] = [];

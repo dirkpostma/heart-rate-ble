@@ -149,8 +149,11 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
   }
 
   /**
-   * Silence without a goodbye, exactly like hardware: emissions stop and
-   * the store's staleness rule greys the row out on its own.
+   * Silence without a goodbye, exactly like hardware (a Garmin ending
+   * its broadcast keeps the link up but stops advertising *and*
+   * notifying): advertisements and samples both stop, and the store's
+   * staleness rules react on their own — scan row greys at 3 s, live
+   * screen shows "Connected — no signal" at 5 s.
    */
   setAdvertising(id: string, on: boolean): void {
     const device = this.devices.get(id);
@@ -247,7 +250,9 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
     const device = this.connectedId ? this.devices.get(this.connectedId) : undefined;
     if (!device) return;
     device.age += 1;
-    if (this.dropoutQuiet(device)) return; // silence trips the live screen's 5 s rule
+    // Powered off or in a dropout quiet window: the link stays up but
+    // samples stop, tripping the live screen's 5 s silence rule.
+    if (!device.advertising || this.dropoutQuiet(device)) return;
     const { min, max, step } = PROFILES[device.profile];
     device.bpm = Math.max(min, Math.min(max, device.bpm + (Math.random() * 2 - 1) * step));
     const sample: HeartRateSample = {

@@ -22,8 +22,11 @@ Distribution is via TestFlight (internal group).
 **Without hardware:** summon a demo device (**Demo HRM n**) — a virtual
 sensor that advertises and streams synthetic ~1 Hz heart rate through the
 exact same interface and staleness rules as real hardware, so the full
-flow works on any simulator. Until the on-device demo surface lands, use
-`demoMonitor.summon()` from the dev-client debugger console.
+flow works on any simulator. Tap the faint dot in the bottom-right corner
+to open the demo panel: summon devices with a resting, workout or dropout
+profile, power them off (⏻ — silence, no goodbye, exactly like a watch
+that stops broadcasting), simulate a transient link drop (⚡), or remove
+them (✕).
 
 ## How it works
 
