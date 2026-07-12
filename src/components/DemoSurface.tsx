@@ -22,6 +22,33 @@ const EDGE = { side: spacing.md, top: spacing.xl, bottom: 104 };
 // Release displacement under this is a tap (opens the panel), not a drag.
 const TAP_SLOP = 6;
 
+// The glossary the #20 device pass found missing (#33). Each action line
+// names the on-screen consequence, not just the mechanics — the demo
+// exists to show those behaviors off, so the help must say what to watch
+// for. Strings like "Reconnecting…" quote the live screen verbatim.
+const HELP_ROWS = [
+  {
+    glyph: '⏻',
+    text: 'Stop or resume advertising. Stopped, the row dims here and the scan list greys the device out after ~3 s; resumed, it recovers.',
+  },
+  {
+    glyph: '⚡',
+    text: 'Drop the connection once (enabled while connected). The live screen shows Reconnecting… and picks the device back up in ~3 s.',
+  },
+  {
+    glyph: '✕',
+    text: 'Remove the device. If it was connected, the live screen ends in Connection lost.',
+  },
+  {
+    glyph: '●',
+    text: 'Green means connected.',
+  },
+  {
+    glyph: '＋',
+    text: 'Summon a virtual sensor: Resting wanders 55–75 bpm, Workout 95–175 bpm, Dropout goes silent for 5 s in every 25 so timeouts and recovery demo themselves.',
+  },
+];
+
 type AnchorRow = 'top' | 'middle' | 'bottom';
 type AnchorCol = 'left' | 'center' | 'right';
 interface Anchor {
@@ -97,6 +124,7 @@ export function DemoSurface() {
   );
   const connectedId = useHeartRate((state) => state.connectedDevice?.id ?? null);
   const [open, setOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [frame, setFrame] = useState<Size | null>(null);
   const [panelSize, setPanelSize] = useState<Size | null>(null);
   const frameRef = useRef<Size | null>(null);
@@ -151,6 +179,9 @@ export function DemoSurface() {
     const current = frameRef.current;
     if (current) pan.setValue(anchorPoint(sessionAnchor, current, PILL));
     setOpen(false);
+    // Help is read-once: reopening the panel returns to the compact
+    // working layout, not a wall of text.
+    setHelpOpen(false);
   };
 
   const pillResponder = useRef(
@@ -230,10 +261,27 @@ export function DemoSurface() {
             <View style={styles.dragHandle} {...headerResponder.panHandlers}>
               <Text style={styles.title}>Demo devices</Text>
             </View>
+            <Pressable
+              style={styles.helpBtn}
+              hitSlop={8}
+              onPress={() => setHelpOpen((current) => !current)}
+            >
+              <Text style={[styles.helpGlyph, helpOpen && styles.helpGlyphOn]}>?</Text>
+            </Pressable>
             <Pressable style={styles.collapseBtn} hitSlop={8} onPress={collapse}>
               <View style={styles.chevron} />
             </Pressable>
           </View>
+          {helpOpen && (
+            <View style={styles.help}>
+              {HELP_ROWS.map(({ glyph, text }) => (
+                <View key={glyph} style={styles.helpRow}>
+                  <Text style={styles.helpGlyphCol}>{glyph}</Text>
+                  <Text style={styles.helpText}>{text}</Text>
+                </View>
+              ))}
+            </View>
+          )}
           {devices.map((device) => (
             <View key={device.id} style={[styles.row, !device.advertising && styles.rowDim]}>
               <View
@@ -325,6 +373,28 @@ const styles = StyleSheet.create({
   // spawn Pressables below.
   dragHandle: { flex: 1, height: 28, justifyContent: 'center', marginVertical: -6 },
   title: { color: colors.text, fontSize: 13, fontWeight: '700' },
+  // Help opener lives in the title strip like the chevron (#33): a
+  // sibling Pressable outside the drag handle, so it can never become a
+  // second drag-gesture claimant (#28).
+  helpBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: -6,
+  },
+  helpGlyph: { color: colors.textDim, fontSize: 13, fontWeight: '700' },
+  helpGlyphOn: { color: colors.accent },
+  help: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.xs,
+    gap: 6,
+  },
+  helpRow: { flexDirection: 'row', gap: spacing.sm },
+  helpGlyphCol: { color: colors.textDim, fontSize: 12, width: 16, textAlign: 'center', lineHeight: 15 },
+  helpText: { color: colors.textDim, fontSize: 11, lineHeight: 15, flex: 1 },
   // Drawn chevron instead of a text "⌄": no baseline drift against the
   // title, and a real 28 pt tap target (#24).
   collapseBtn: {
