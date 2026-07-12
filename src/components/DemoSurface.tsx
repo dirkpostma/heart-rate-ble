@@ -15,8 +15,10 @@ import { colors, spacing } from '../theme';
 const DOT = 28;
 const PANEL_WIDTH = 264;
 // Bottom inset keeps the default position clear of the Disconnect
-// button and version footer; sides and top hug the safe area.
-const EDGE = { side: spacing.md, top: spacing.md, bottom: 104 };
+// button and version footer. Top must clear the iOS Notification Center
+// pull-down: with the 12 pt hitSlop a grab can start that far above the
+// dot, and at 16 pt the system gesture claimed the drag (#26).
+const EDGE = { side: spacing.md, top: spacing.xl, bottom: 104 };
 // Release displacement under this is a tap (opens the panel), not a drag.
 const TAP_SLOP = 6;
 
