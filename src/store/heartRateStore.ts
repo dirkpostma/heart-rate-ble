@@ -23,6 +23,13 @@ export interface HeartRateState {
   scanning: boolean;
   scanEnabled: boolean;
   error: string | null;
+  /**
+   * Why a connect attempt failed. Separate from `error` because the scan
+   * restart that follows a failed attempt resets the scan session (and
+   * its `error`) — this must outlive that restart to ever be seen (#13).
+   * Cleared by the next connect attempt or an explicit rescan.
+   */
+  connectError: string | null;
   connectingId: string | null;
   connectedDevice: DiscoveredDevice | null;
   connectionState: ConnectionState;
@@ -63,6 +70,7 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
     scanning: false,
     scanEnabled: true,
     error: null,
+    connectError: null,
     connectingId: null,
     connectedDevice: null,
     connectionState: 'disconnected',
@@ -149,10 +157,10 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
   async function connect(device: DiscoveredDevice): Promise<void> {
     const monitor = sourceOf.get(device.id);
     if (!monitor) {
-      store.setState({ error: `${device.name} was not reported by any scan source` });
+      store.setState({ connectError: `${device.name} was not reported by any scan source` });
       return;
     }
-    store.setState({ connectingId: device.id, error: null });
+    store.setState({ connectingId: device.id, connectError: null, error: null });
     syncScan();
     const offSample = monitor.onSample((sample) => store.setState({ sample }));
     const offState = monitor.onConnectionState((state) => {
@@ -175,11 +183,12 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
       await monitor.connect(device.id);
       activeMonitor = monitor;
       store.setState({ connectedDevice: device });
-    } catch (connectError) {
+    } catch (cause) {
       offSample();
       offState();
+      const reason = cause instanceof Error ? cause.message : String(cause);
       store.setState({
-        error: connectError instanceof Error ? connectError.message : String(connectError),
+        connectError: `Couldn’t connect to ${device.name}: ${reason}`,
         connectionState: 'disconnected',
       });
     } finally {
@@ -200,7 +209,10 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
     syncScan();
   }
 
+  // Pull-to-refresh is the "clear the slate" gesture, so it also
+  // dismisses a lingering connect failure.
   function rescan(): void {
+    store.setState({ connectError: null });
     stopScanning();
     startScanning();
   }
