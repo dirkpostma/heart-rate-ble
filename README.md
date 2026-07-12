@@ -22,8 +22,9 @@ Distribution is via TestFlight (internal group).
 **Without hardware:** summon a demo device (**Demo Workout n** — the name
 carries the profile) — a virtual sensor that advertises and streams synthetic ~1 Hz heart rate through the
 exact same interface and staleness rules as real hardware, so the full
-flow works on any simulator. Tap the faint dot in the bottom-right corner
-to open the demo panel: summon devices with a resting, workout or dropout
+flow works on any simulator. Tap the grey dot (bottom-right by default;
+drag it out of the way — it snaps to corners and mid-edges) to open the
+demo panel: summon devices with a resting, workout or dropout
 profile, power them off (⏻ — silence, no goodbye, exactly like a watch
 that stops broadcasting), simulate a transient link drop (⚡), or remove
 them (✕).

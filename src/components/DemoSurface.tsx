@@ -1,14 +1,100 @@
-import { useState, useSyncExternalStore } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  Animated,
+  LayoutChangeEvent,
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { DemoProfile, PROFILE_LABEL } from '../ble/DemoHeartRateMonitor';
 import { demoMonitor, useHeartRate } from '../store/appStore';
 import { colors, spacing } from '../theme';
 
+const DOT = 28;
+const PANEL_WIDTH = 264;
+// Bottom inset keeps the default position clear of the Disconnect
+// button and version footer; sides and top hug the safe area.
+const EDGE = { side: spacing.md, top: spacing.md, bottom: 104 };
+// Release displacement under this is a tap (opens the panel), not a drag.
+const TAP_SLOP = 6;
+
+type AnchorRow = 'top' | 'middle' | 'bottom';
+type AnchorCol = 'left' | 'center' | 'right';
+interface Anchor {
+  row: AnchorRow;
+  col: AnchorCol;
+}
+interface Frame {
+  width: number;
+  height: number;
+}
+
+// The snap positions of issue #21: 4 corners + 4 mid-edges.
+const ANCHORS: Anchor[] = (['top', 'middle', 'bottom'] as const).flatMap((row) =>
+  (['left', 'center', 'right'] as const)
+    .filter((col) => !(row === 'middle' && col === 'center'))
+    .map((col) => ({ row, col })),
+);
+
+// Where the dot was last dragged. In-memory only, like the demo devices
+// themselves (map #15): a restart is back at bottom-right.
+let sessionAnchor: Anchor = { row: 'bottom', col: 'right' };
+
+function dotPoint({ row, col }: Anchor, frame: Frame): { x: number; y: number } {
+  const x =
+    col === 'left'
+      ? EDGE.side
+      : col === 'right'
+        ? frame.width - DOT - EDGE.side
+        : (frame.width - DOT) / 2;
+  const y =
+    row === 'top'
+      ? EDGE.top
+      : row === 'bottom'
+        ? frame.height - DOT - EDGE.bottom
+        : (frame.height - DOT) / 2;
+  return { x, y };
+}
+
+function nearestAnchor(pos: { x: number; y: number }, frame: Frame): Anchor {
+  let best = ANCHORS[0];
+  let bestDistance = Infinity;
+  for (const anchor of ANCHORS) {
+    const point = dotPoint(anchor, frame);
+    const distance = (point.x - pos.x) ** 2 + (point.y - pos.y) ** 2;
+    if (distance < bestDistance) {
+      best = anchor;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+/** The panel opens on the dot's edge and grows inward from it. */
+function panelPlacement({ row, col }: Anchor, frame: Frame) {
+  return {
+    ...(col === 'left'
+      ? { left: EDGE.side }
+      : col === 'right'
+        ? { right: EDGE.side }
+        : { left: (frame.width - PANEL_WIDTH) / 2 }),
+    ...(row === 'top'
+      ? { top: EDGE.top }
+      : row === 'middle'
+        ? { top: (frame.height - DOT) / 2 }
+        : { bottom: EDGE.bottom }),
+  };
+}
+
 /**
- * The demo control surface (issues #17/#19): a faint dot in the corner
- * of every screen — release builds included — that expands into a
- * compact panel for summoning and controlling virtual devices, small
- * enough that the app stays visible while you drive the mocks.
+ * The demo control surface (issues #17/#19): a small grey dot present on
+ * every screen — release builds included — that expands into a compact
+ * panel for summoning and controlling virtual devices, small enough that
+ * the app stays visible while you drive the mocks. The dot is draggable
+ * and snaps to corners and mid-edges so it can never permanently cover
+ * critical UI (#21).
  */
 export function DemoSurface() {
   const devices = useSyncExternalStore(
@@ -17,84 +103,158 @@ export function DemoSurface() {
   );
   const connectedId = useHeartRate((state) => state.connectedDevice?.id ?? null);
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState(sessionAnchor);
+  const [frame, setFrame] = useState<Frame | null>(null);
+  const frameRef = useRef<Frame | null>(null);
 
-  if (!open) {
-    return (
-      <Pressable style={styles.dot} hitSlop={16} onPress={() => setOpen(true)}>
-        <View style={styles.dotInner} />
-      </Pressable>
-    );
-  }
+  const pan = useRef(new Animated.ValueXY()).current;
+  const posRef = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    const subscription = pan.addListener((value) => {
+      posRef.current = value;
+    });
+    return () => pan.removeListener(subscription);
+  }, [pan]);
+
+  const snapTo = (next: Anchor, target: Frame) => {
+    sessionAnchor = next;
+    setAnchor(next);
+    Animated.spring(pan, {
+      toValue: dotPoint(next, target),
+      friction: 6,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const settle = () => {
+    pan.flattenOffset();
+    const current = frameRef.current;
+    if (current) snapTo(nearestAnchor(posRef.current, current), current);
+  };
+
+  const responder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        pan.setOffset(posRef.current);
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: (_event, gesture) => {
+        if (Math.abs(gesture.dx) < TAP_SLOP && Math.abs(gesture.dy) < TAP_SLOP) {
+          pan.flattenOffset();
+          setOpen(true);
+          return;
+        }
+        settle();
+      },
+      onPanResponderTerminate: settle,
+    }),
+  ).current;
+
+  const onLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    const next = { width, height };
+    frameRef.current = next;
+    setFrame(next);
+    pan.setValue(dotPoint(sessionAnchor, next));
+  };
 
   return (
-    <View style={styles.panel}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Demo devices</Text>
-        <Pressable style={styles.collapseBtn} hitSlop={8} onPress={() => setOpen(false)}>
-          <View style={styles.chevron} />
-        </Pressable>
-      </View>
-      {devices.map((device) => (
-        <View key={device.id} style={[styles.row, !device.advertising && styles.rowDim]}>
-          <View
-            style={[styles.statusDot, connectedId === device.id && styles.statusDotConnected]}
-          />
-          <Text style={styles.name} numberOfLines={1}>
-            {device.name}
-          </Text>
-          <View style={styles.actions}>
-            <Pressable
-              hitSlop={6}
-              onPress={() => demoMonitor.setAdvertising(device.id, !device.advertising)}
-            >
-              <Text style={[styles.icon, device.advertising && styles.iconOn]}>⏻</Text>
-            </Pressable>
-            <Pressable
-              hitSlop={6}
-              disabled={connectedId !== device.id}
-              onPress={() => demoMonitor.dropConnection()}
-            >
-              <Text style={[styles.icon, connectedId !== device.id && styles.iconDisabled]}>
-                ⚡
-              </Text>
-            </Pressable>
-            <Pressable hitSlop={6} onPress={() => demoMonitor.dismiss(device.id)}>
-              <Text style={styles.icon}>✕</Text>
-            </Pressable>
-          </View>
-        </View>
-      ))}
-      {devices.length === 0 && <Text style={styles.empty}>No demo devices</Text>}
-      <View style={styles.spawnRow}>
-        {(Object.keys(PROFILE_LABEL) as DemoProfile[]).map((profile) => (
-          <Pressable
-            key={profile}
-            style={styles.spawnBtn}
-            onPress={() => demoMonitor.summon(profile)}
-          >
-            <Text style={styles.spawnText}>＋{PROFILE_LABEL[profile]}</Text>
-          </Pressable>
-        ))}
-      </View>
+    <View style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onLayout}>
+      {frame !== null && !open && (
+        <Animated.View
+          style={[styles.dot, { transform: pan.getTranslateTransform() }]}
+          hitSlop={12}
+          {...responder.panHandlers}
+        >
+          <View style={styles.dotCore} />
+        </Animated.View>
+      )}
+      {frame !== null && open && renderPanel(panelPlacement(anchor, frame))}
     </View>
   );
+
+  function renderPanel(placement: object) {
+    return (
+      <View style={[styles.panel, placement]}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Demo devices</Text>
+          <Pressable style={styles.collapseBtn} hitSlop={8} onPress={() => setOpen(false)}>
+            <View style={styles.chevron} />
+          </Pressable>
+        </View>
+        {devices.map((device) => (
+          <View key={device.id} style={[styles.row, !device.advertising && styles.rowDim]}>
+            <View
+              style={[styles.statusDot, connectedId === device.id && styles.statusDotConnected]}
+            />
+            <Text style={styles.name} numberOfLines={1}>
+              {device.name}
+            </Text>
+            <View style={styles.actions}>
+              <Pressable
+                hitSlop={6}
+                onPress={() => demoMonitor.setAdvertising(device.id, !device.advertising)}
+              >
+                <Text style={[styles.icon, device.advertising && styles.iconOn]}>⏻</Text>
+              </Pressable>
+              <Pressable
+                hitSlop={6}
+                disabled={connectedId !== device.id}
+                onPress={() => demoMonitor.dropConnection()}
+              >
+                <Text style={[styles.icon, connectedId !== device.id && styles.iconDisabled]}>
+                  ⚡
+                </Text>
+              </Pressable>
+              <Pressable hitSlop={6} onPress={() => demoMonitor.dismiss(device.id)}>
+                <Text style={styles.icon}>✕</Text>
+              </Pressable>
+            </View>
+          </View>
+        ))}
+        {devices.length === 0 && <Text style={styles.empty}>No demo devices</Text>}
+        <View style={styles.spawnRow}>
+          {(Object.keys(PROFILE_LABEL) as DemoProfile[]).map((profile) => (
+            <Pressable
+              key={profile}
+              style={styles.spawnBtn}
+              onPress={() => demoMonitor.summon(profile)}
+            >
+              <Text style={styles.spawnText}>＋{PROFILE_LABEL[profile]}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    );
+  }
 }
 
-const CORNER = { right: spacing.md, bottom: 104 };
-
 const styles = StyleSheet.create({
-  dot: { position: 'absolute', ...CORNER },
-  dotInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.textDim,
-    opacity: 0.15,
+  // A ring with a core instead of the former 14 px / 15 % smudge: it
+  // reads as a deliberate control on the device (#21) while its neutral
+  // greys keep it subordinate to the app UI.
+  dot: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: DOT,
+    height: DOT,
+    borderRadius: DOT / 2,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.textDim,
+    opacity: 0.75,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  dotCore: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.textDim },
   panel: {
     position: 'absolute',
-    ...CORNER,
-    width: 264,
+    width: PANEL_WIDTH,
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
