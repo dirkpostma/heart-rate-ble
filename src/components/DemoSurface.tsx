@@ -30,32 +30,38 @@ export function DemoSurface() {
     <View style={styles.panel}>
       <View style={styles.header}>
         <Text style={styles.title}>Demo devices</Text>
-        <Pressable hitSlop={8} onPress={() => setOpen(false)}>
-          <Text style={styles.collapse}>⌄</Text>
+        <Pressable style={styles.collapseBtn} hitSlop={8} onPress={() => setOpen(false)}>
+          <View style={styles.chevron} />
         </Pressable>
       </View>
       {devices.map((device) => (
         <View key={device.id} style={[styles.row, !device.advertising && styles.rowDim]}>
+          <View
+            style={[styles.statusDot, connectedId === device.id && styles.statusDotConnected]}
+          />
           <Text style={styles.name} numberOfLines={1}>
             {device.name}
-            {connectedId === device.id && <Text style={styles.connectedMark}> ●</Text>}
           </Text>
-          <Pressable
-            hitSlop={6}
-            onPress={() => demoMonitor.setAdvertising(device.id, !device.advertising)}
-          >
-            <Text style={[styles.icon, device.advertising && styles.iconOn]}>⏻</Text>
-          </Pressable>
-          <Pressable
-            hitSlop={6}
-            disabled={connectedId !== device.id}
-            onPress={() => demoMonitor.dropConnection()}
-          >
-            <Text style={[styles.icon, connectedId !== device.id && styles.iconDisabled]}>⚡</Text>
-          </Pressable>
-          <Pressable hitSlop={6} onPress={() => demoMonitor.dismiss(device.id)}>
-            <Text style={styles.icon}>✕</Text>
-          </Pressable>
+          <View style={styles.actions}>
+            <Pressable
+              hitSlop={6}
+              onPress={() => demoMonitor.setAdvertising(device.id, !device.advertising)}
+            >
+              <Text style={[styles.icon, device.advertising && styles.iconOn]}>⏻</Text>
+            </Pressable>
+            <Pressable
+              hitSlop={6}
+              disabled={connectedId !== device.id}
+              onPress={() => demoMonitor.dropConnection()}
+            >
+              <Text style={[styles.icon, connectedId !== device.id && styles.iconDisabled]}>
+                ⚡
+              </Text>
+            </Pressable>
+            <Pressable hitSlop={6} onPress={() => demoMonitor.dismiss(device.id)}>
+              <Text style={styles.icon}>✕</Text>
+            </Pressable>
+          </View>
         </View>
       ))}
       {devices.length === 0 && <Text style={styles.empty}>No demo devices</Text>}
@@ -103,11 +109,42 @@ const styles = StyleSheet.create({
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { color: colors.text, fontSize: 13, fontWeight: '700' },
-  collapse: { color: colors.textDim, fontSize: 16 },
+  // Drawn chevron instead of a text "⌄": no baseline drift against the
+  // title, and a real 28 pt tap target (#24).
+  collapseBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: -6,
+    marginRight: -6,
+  },
+  chevron: {
+    width: 10,
+    height: 10,
+    borderRightWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: colors.textDim,
+    transform: [{ rotate: '45deg' }],
+    marginTop: -4,
+  },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   rowDim: { opacity: 0.45 },
+  // Rows read "status | identity | actions" (#23): a leading dot shows
+  // connectedness (the live screen's state-dot language), and the action
+  // icons sit behind a hairline so tappable and status-only glyphs never
+  // share a visual group.
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
+  statusDotConnected: { backgroundColor: colors.success },
   name: { color: colors.text, fontSize: 13, flex: 1 },
-  connectedMark: { color: colors.success, fontSize: 11 },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border,
+    paddingLeft: spacing.sm,
+  },
   icon: { color: colors.textDim, fontSize: 14, padding: 2 },
   iconOn: { color: colors.accent },
   iconDisabled: { opacity: 0.3 },
