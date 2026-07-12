@@ -12,7 +12,7 @@ import { DemoProfile, PROFILE_LABEL } from '../ble/DemoHeartRateMonitor';
 import { demoMonitor, useHeartRate } from '../store/appStore';
 import { colors, spacing } from '../theme';
 
-const DOT = 28;
+const PILL = { width: 54, height: 24 };
 const PANEL_WIDTH = 264;
 // Bottom inset keeps the default position clear of the Disconnect
 // button and version footer. Top must clear the iOS Notification Center
@@ -49,14 +49,14 @@ function dotPoint({ row, col }: Anchor, frame: Frame): { x: number; y: number } 
     col === 'left'
       ? EDGE.side
       : col === 'right'
-        ? frame.width - DOT - EDGE.side
-        : (frame.width - DOT) / 2;
+        ? frame.width - PILL.width - EDGE.side
+        : (frame.width - PILL.width) / 2;
   const y =
     row === 'top'
       ? EDGE.top
       : row === 'bottom'
-        ? frame.height - DOT - EDGE.bottom
-        : (frame.height - DOT) / 2;
+        ? frame.height - PILL.height - EDGE.bottom
+        : (frame.height - PILL.height) / 2;
   return { x, y };
 }
 
@@ -85,18 +85,18 @@ function panelPlacement({ row, col }: Anchor, frame: Frame) {
     ...(row === 'top'
       ? { top: EDGE.top }
       : row === 'middle'
-        ? { top: (frame.height - DOT) / 2 }
+        ? { top: (frame.height - PILL.height) / 2 }
         : { bottom: EDGE.bottom }),
   };
 }
 
 /**
- * The demo control surface (issues #17/#19): a small grey dot present on
- * every screen — release builds included — that expands into a compact
- * panel for summoning and controlling virtual devices, small enough that
- * the app stays visible while you drive the mocks. The dot is draggable
- * and snaps to corners and mid-edges so it can never permanently cover
- * critical UI (#21).
+ * The demo control surface (issues #17/#19): a small grey "DEMO" pill
+ * present on every screen — release builds included — that expands into
+ * a compact panel for summoning and controlling virtual devices, small
+ * enough that the app stays visible while you drive the mocks. The pill
+ * is draggable and snaps to corners and mid-edges so it can never
+ * permanently cover critical UI (#21).
  */
 export function DemoSurface() {
   const devices = useSyncExternalStore(
@@ -168,11 +168,11 @@ export function DemoSurface() {
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onLayout}>
       {frame !== null && !open && (
         <Animated.View
-          style={[styles.dot, { transform: pan.getTranslateTransform() }]}
+          style={[styles.pill, { transform: pan.getTranslateTransform() }]}
           hitSlop={12}
           {...responder.panHandlers}
         >
-          <View style={styles.dotCore} />
+          <Text style={styles.pillText}>DEMO</Text>
         </Animated.View>
       )}
       {frame !== null && open && renderPanel(panelPlacement(anchor, frame))}
@@ -236,16 +236,16 @@ export function DemoSurface() {
 }
 
 const styles = StyleSheet.create({
-  // A ring with a core instead of the former 14 px / 15 % smudge: it
-  // reads as a deliberate control on the device (#21) while its neutral
-  // greys keep it subordinate to the app UI.
-  dot: {
+  // A labeled pill instead of the former ring-and-core: the word says
+  // what the control is (#27) while its neutral greys keep it
+  // subordinate to the app UI.
+  pill: {
     position: 'absolute',
     left: 0,
     top: 0,
-    width: DOT,
-    height: DOT,
-    borderRadius: DOT / 2,
+    width: PILL.width,
+    height: PILL.height,
+    borderRadius: PILL.height / 2,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.textDim,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dotCore: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.textDim },
+  pillText: { color: colors.textDim, fontSize: 10, fontWeight: '600', letterSpacing: 1 },
   panel: {
     position: 'absolute',
     width: PANEL_WIDTH,
