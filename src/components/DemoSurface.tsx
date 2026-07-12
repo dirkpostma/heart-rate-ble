@@ -28,7 +28,7 @@ interface Anchor {
   row: AnchorRow;
   col: AnchorCol;
 }
-interface Frame {
+interface Size {
   width: number;
   height: number;
 }
@@ -40,31 +40,38 @@ const ANCHORS: Anchor[] = (['top', 'middle', 'bottom'] as const).flatMap((row) =
     .map((col) => ({ row, col })),
 );
 
-// Where the dot was last dragged. In-memory only, like the demo devices
+// Where the surface was last dragged. Pill and panel share it — they are
+// one object in two states (#28), so collapsing after a panel drag puts
+// the pill where the panel was. In-memory only, like the demo devices
 // themselves (map #15): a restart is back at bottom-right.
 let sessionAnchor: Anchor = { row: 'bottom', col: 'right' };
 
-function dotPoint({ row, col }: Anchor, frame: Frame): { x: number; y: number } {
+/**
+ * Top-left corner of an element of `size` snapped to `anchor`. Elements
+ * center themselves on the middle row / center column, so the pill and
+ * the variable-height panel share one anchor vocabulary.
+ */
+function anchorPoint({ row, col }: Anchor, frame: Size, size: Size): { x: number; y: number } {
   const x =
     col === 'left'
       ? EDGE.side
       : col === 'right'
-        ? frame.width - PILL.width - EDGE.side
-        : (frame.width - PILL.width) / 2;
+        ? frame.width - size.width - EDGE.side
+        : (frame.width - size.width) / 2;
   const y =
     row === 'top'
       ? EDGE.top
       : row === 'bottom'
-        ? frame.height - PILL.height - EDGE.bottom
-        : (frame.height - PILL.height) / 2;
+        ? frame.height - size.height - EDGE.bottom
+        : (frame.height - size.height) / 2;
   return { x, y };
 }
 
-function nearestAnchor(pos: { x: number; y: number }, frame: Frame): Anchor {
+function nearestAnchor(pos: { x: number; y: number }, frame: Size, size: Size): Anchor {
   let best = ANCHORS[0];
   let bestDistance = Infinity;
   for (const anchor of ANCHORS) {
-    const point = dotPoint(anchor, frame);
+    const point = anchorPoint(anchor, frame, size);
     const distance = (point.x - pos.x) ** 2 + (point.y - pos.y) ** 2;
     if (distance < bestDistance) {
       best = anchor;
@@ -74,29 +81,14 @@ function nearestAnchor(pos: { x: number; y: number }, frame: Frame): Anchor {
   return best;
 }
 
-/** The panel opens on the dot's edge and grows inward from it. */
-function panelPlacement({ row, col }: Anchor, frame: Frame) {
-  return {
-    ...(col === 'left'
-      ? { left: EDGE.side }
-      : col === 'right'
-        ? { right: EDGE.side }
-        : { left: (frame.width - PANEL_WIDTH) / 2 }),
-    ...(row === 'top'
-      ? { top: EDGE.top }
-      : row === 'middle'
-        ? { top: (frame.height - PILL.height) / 2 }
-        : { bottom: EDGE.bottom }),
-  };
-}
-
 /**
  * The demo control surface (issues #17/#19): a small grey "DEMO" pill
  * present on every screen — release builds included — that expands into
  * a compact panel for summoning and controlling virtual devices, small
- * enough that the app stays visible while you drive the mocks. The pill
- * is draggable and snaps to corners and mid-edges so it can never
- * permanently cover critical UI (#21).
+ * enough that the app stays visible while you drive the mocks. Pill and
+ * panel are both draggable — the panel by its header (#28) — and snap to
+ * corners and mid-edges so they can never permanently cover critical
+ * UI (#21).
  */
 export function DemoSurface() {
   const devices = useSyncExternalStore(
@@ -105,9 +97,11 @@ export function DemoSurface() {
   );
   const connectedId = useHeartRate((state) => state.connectedDevice?.id ?? null);
   const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState(sessionAnchor);
-  const [frame, setFrame] = useState<Frame | null>(null);
-  const frameRef = useRef<Frame | null>(null);
+  const [frame, setFrame] = useState<Size | null>(null);
+  const [panelSize, setPanelSize] = useState<Size | null>(null);
+  const frameRef = useRef<Size | null>(null);
+  const panelSizeRef = useRef<Size | null>(null);
+  const draggingRef = useRef(false);
 
   const pan = useRef(new Animated.ValueXY()).current;
   const posRef = useRef({ x: 0, y: 0 });
@@ -118,41 +112,74 @@ export function DemoSurface() {
     return () => pan.removeListener(subscription);
   }, [pan]);
 
-  const snapTo = (next: Anchor, target: Frame) => {
+  const snapTo = (next: Anchor, target: Size, size: Size) => {
     sessionAnchor = next;
-    setAnchor(next);
     Animated.spring(pan, {
-      toValue: dotPoint(next, target),
+      toValue: anchorPoint(next, target, size),
       friction: 6,
       useNativeDriver: false,
     }).start();
   };
 
-  const settle = () => {
-    pan.flattenOffset();
-    const current = frameRef.current;
-    if (current) snapTo(nearestAnchor(posRef.current, current), current);
+  const grab = () => {
+    draggingRef.current = true;
+    pan.setOffset(posRef.current);
+    pan.setValue({ x: 0, y: 0 });
   };
 
-  const responder = useRef(
+  const settle = (size: Size) => {
+    draggingRef.current = false;
+    pan.flattenOffset();
+    const current = frameRef.current;
+    if (current) snapTo(nearestAnchor(posRef.current, current, size), current, size);
+  };
+
+  const settlePanel = () => settle(panelSizeRef.current ?? { width: PANEL_WIDTH, height: 0 });
+
+  const openPanel = () => {
+    draggingRef.current = false;
+    pan.flattenOffset();
+    const current = frameRef.current;
+    const size = panelSizeRef.current;
+    // First open has no measured size yet: the panel renders hidden and
+    // onPanelLayout places it.
+    if (current && size) pan.setValue(anchorPoint(sessionAnchor, current, size));
+    setOpen(true);
+  };
+
+  const collapse = () => {
+    const current = frameRef.current;
+    if (current) pan.setValue(anchorPoint(sessionAnchor, current, PILL));
+    setOpen(false);
+  };
+
+  const pillResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        pan.setOffset(posRef.current);
-        pan.setValue({ x: 0, y: 0 });
-      },
+      onPanResponderGrant: grab,
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
         useNativeDriver: false,
       }),
       onPanResponderRelease: (_event, gesture) => {
         if (Math.abs(gesture.dx) < TAP_SLOP && Math.abs(gesture.dy) < TAP_SLOP) {
-          pan.flattenOffset();
-          setOpen(true);
+          openPanel();
           return;
         }
-        settle();
+        settle(PILL);
       },
-      onPanResponderTerminate: settle,
+      onPanResponderTerminate: () => settle(PILL),
+    }),
+  ).current;
+
+  const headerResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: grab,
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: () => settlePanel(),
+      onPanResponderTerminate: () => settlePanel(),
     }),
   ).current;
 
@@ -161,7 +188,22 @@ export function DemoSurface() {
     const next = { width, height };
     frameRef.current = next;
     setFrame(next);
-    pan.setValue(dotPoint(sessionAnchor, next));
+    const size = open ? (panelSizeRef.current ?? PILL) : PILL;
+    pan.setValue(anchorPoint(sessionAnchor, next, size));
+  };
+
+  const onPanelLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    const size = { width, height };
+    panelSizeRef.current = size;
+    setPanelSize(size);
+    // Keep the panel pinned to its anchor as rows come and go (a
+    // bottom-anchored panel grows upward); a drag in progress owns the
+    // position instead.
+    const current = frameRef.current;
+    if (current && !draggingRef.current) {
+      pan.setValue(anchorPoint(sessionAnchor, current, size));
+    }
   };
 
   return (
@@ -170,69 +212,74 @@ export function DemoSurface() {
         <Animated.View
           style={[styles.pill, { transform: pan.getTranslateTransform() }]}
           hitSlop={12}
-          {...responder.panHandlers}
+          {...pillResponder.panHandlers}
         >
           <Text style={styles.pillText}>DEMO</Text>
         </Animated.View>
       )}
-      {frame !== null && open && renderPanel(panelPlacement(anchor, frame))}
+      {frame !== null && open && (
+        <Animated.View
+          style={[
+            styles.panel,
+            panelSize === null && styles.panelUnmeasured,
+            { transform: pan.getTranslateTransform() },
+          ]}
+          onLayout={onPanelLayout}
+        >
+          <View style={styles.header}>
+            <View style={styles.dragHandle} {...headerResponder.panHandlers}>
+              <Text style={styles.title}>Demo devices</Text>
+            </View>
+            <Pressable style={styles.collapseBtn} hitSlop={8} onPress={collapse}>
+              <View style={styles.chevron} />
+            </Pressable>
+          </View>
+          {devices.map((device) => (
+            <View key={device.id} style={[styles.row, !device.advertising && styles.rowDim]}>
+              <View
+                style={[styles.statusDot, connectedId === device.id && styles.statusDotConnected]}
+              />
+              <Text style={styles.name} numberOfLines={1}>
+                {device.name}
+              </Text>
+              <View style={styles.actions}>
+                <Pressable
+                  hitSlop={6}
+                  onPress={() => demoMonitor.setAdvertising(device.id, !device.advertising)}
+                >
+                  <Text style={[styles.icon, device.advertising && styles.iconOn]}>⏻</Text>
+                </Pressable>
+                <Pressable
+                  hitSlop={6}
+                  disabled={connectedId !== device.id}
+                  onPress={() => demoMonitor.dropConnection()}
+                >
+                  <Text style={[styles.icon, connectedId !== device.id && styles.iconDisabled]}>
+                    ⚡
+                  </Text>
+                </Pressable>
+                <Pressable hitSlop={6} onPress={() => demoMonitor.dismiss(device.id)}>
+                  <Text style={styles.icon}>✕</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+          {devices.length === 0 && <Text style={styles.empty}>No demo devices</Text>}
+          <View style={styles.spawnRow}>
+            {(Object.keys(PROFILE_LABEL) as DemoProfile[]).map((profile) => (
+              <Pressable
+                key={profile}
+                style={styles.spawnBtn}
+                onPress={() => demoMonitor.summon(profile)}
+              >
+                <Text style={styles.spawnText}>＋{PROFILE_LABEL[profile]}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
-
-  function renderPanel(placement: object) {
-    return (
-      <View style={[styles.panel, placement]}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Demo devices</Text>
-          <Pressable style={styles.collapseBtn} hitSlop={8} onPress={() => setOpen(false)}>
-            <View style={styles.chevron} />
-          </Pressable>
-        </View>
-        {devices.map((device) => (
-          <View key={device.id} style={[styles.row, !device.advertising && styles.rowDim]}>
-            <View
-              style={[styles.statusDot, connectedId === device.id && styles.statusDotConnected]}
-            />
-            <Text style={styles.name} numberOfLines={1}>
-              {device.name}
-            </Text>
-            <View style={styles.actions}>
-              <Pressable
-                hitSlop={6}
-                onPress={() => demoMonitor.setAdvertising(device.id, !device.advertising)}
-              >
-                <Text style={[styles.icon, device.advertising && styles.iconOn]}>⏻</Text>
-              </Pressable>
-              <Pressable
-                hitSlop={6}
-                disabled={connectedId !== device.id}
-                onPress={() => demoMonitor.dropConnection()}
-              >
-                <Text style={[styles.icon, connectedId !== device.id && styles.iconDisabled]}>
-                  ⚡
-                </Text>
-              </Pressable>
-              <Pressable hitSlop={6} onPress={() => demoMonitor.dismiss(device.id)}>
-                <Text style={styles.icon}>✕</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))}
-        {devices.length === 0 && <Text style={styles.empty}>No demo devices</Text>}
-        <View style={styles.spawnRow}>
-          {(Object.keys(PROFILE_LABEL) as DemoProfile[]).map((profile) => (
-            <Pressable
-              key={profile}
-              style={styles.spawnBtn}
-              onPress={() => demoMonitor.summon(profile)}
-            >
-              <Text style={styles.spawnText}>＋{PROFILE_LABEL[profile]}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-    );
-  }
 }
 
 const styles = StyleSheet.create({
@@ -256,6 +303,8 @@ const styles = StyleSheet.create({
   pillText: { color: colors.textDim, fontSize: 10, fontWeight: '600', letterSpacing: 1 },
   panel: {
     position: 'absolute',
+    left: 0,
+    top: 0,
     width: PANEL_WIDTH,
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -269,7 +318,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
+  panelUnmeasured: { opacity: 0 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  // The title strip is the panel's drag handle (#28): a 28 pt grab area
+  // matching the collapse button, so drags never fight the row and
+  // spawn Pressables below.
+  dragHandle: { flex: 1, height: 28, justifyContent: 'center', marginVertical: -6 },
   title: { color: colors.text, fontSize: 13, fontWeight: '700' },
   // Drawn chevron instead of a text "⌄": no baseline drift against the
   // title, and a real 28 pt tap target (#24).
