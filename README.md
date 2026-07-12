@@ -5,12 +5,15 @@ React Native (Expo) app, verified end-to-end with a Garmin watch
 broadcasting heart rate.
 
 <p>
-  <img src="docs/screenshots/scan.png" width="280" alt="Scan screen: sensor list with demo sensor" />
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/live.png" width="280" alt="Live screen: beating heart and BPM" />
+  <img src="docs/screenshots/scan.png" width="260" alt="Scan screen: two demo sensors in the list" />
+  &nbsp;
+  <img src="docs/screenshots/live.png" width="260" alt="Live screen: beating heart and BPM" />
+  &nbsp;
+  <img src="docs/screenshots/demo-panel.png" width="260" alt="Demo panel: two virtual devices with power, drop and dismiss controls" />
 </p>
 
-*Simulator screenshots using the built-in demo sensor; the same UI runs
+*Simulator screenshots using two built-in demo devices (resting and
+workout profiles), controlled from the demo panel; the same UI runs
 against real hardware.*
 
 ## Try it
@@ -22,7 +25,7 @@ Distribution is via TestFlight (internal group).
 **Without hardware:** summon a demo device (**Demo Workout n** — the name
 carries the profile) — a virtual sensor that advertises and streams synthetic ~1 Hz heart rate through the
 exact same interface and staleness rules as real hardware, so the full
-flow works on any simulator. Tap the grey dot (bottom-right by default;
+flow works on any simulator. Tap the grey DEMO pill (bottom-right by default;
 drag it out of the way — it snaps to corners and mid-edges) to open the
 demo panel: summon devices with a resting, workout or dropout
 profile, power them off (⏻ — silence, no goodbye, exactly like a watch
