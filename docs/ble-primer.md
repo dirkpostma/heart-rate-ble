@@ -74,6 +74,7 @@ accepts a couple of connections at most, and notifies two-byte measurements
   pretending the frozen number is live.
 - **One interface, two sources.** All of this hides behind a small
   `HeartRateMonitor` interface with two implementations — the real BLE one
-  and a synthetic "Demo sensor" — so the entire UI, and the demo, run
-  identically with or without hardware. The timing rules above live in a
-  plain TypeScript store, unit-tested with fake timers.
+  and a demo one whose summoned virtual sensors advertise and stream like
+  hardware — so the entire UI, staleness rules included, runs identically
+  with or without hardware. The timing rules above live in a plain
+  TypeScript store, unit-tested with fake timers.

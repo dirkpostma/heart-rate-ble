@@ -60,20 +60,13 @@ export function ScanScreen() {
             <View style={styles.rowText}>
               <Text style={styles.deviceName}>{item.name}</Text>
               <Text style={styles.deviceMeta}>
-                {item.isDemo
-                  ? 'Synthetic heart rate — no hardware needed'
-                  : item.stale
-                    ? scanEnabled
-                      ? 'Not broadcasting — reappears automatically'
-                      : 'Not broadcasting — scanning is off'
-                    : `RSSI ${item.rssi ?? '—'} dBm`}
+                {item.stale
+                  ? scanEnabled
+                    ? 'Not broadcasting — reappears automatically'
+                    : 'Not broadcasting — scanning is off'
+                  : `RSSI ${item.rssi ?? '—'} dBm`}
               </Text>
             </View>
-            {item.isDemo && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>DEMO</Text>
-              </View>
-            )}
             {connectingId === item.id && <Text style={styles.connecting}>connecting…</Text>}
           </Pressable>
         )}
@@ -149,18 +142,6 @@ const styles = StyleSheet.create({
     color: colors.textDim,
     fontSize: 13,
     marginTop: 2,
-  },
-  badge: {
-    backgroundColor: colors.accentDim,
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  badgeText: {
-    color: colors.accent,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
   },
   connecting: {
     color: colors.accent,

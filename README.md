@@ -19,10 +19,11 @@ against real hardware.*
 *Broadcast Heart Rate*), open the app, tap the sensor when it appears.
 Distribution is via TestFlight (internal group).
 
-**Without hardware:** tap the **Demo sensor** row. It streams synthetic
-~1 Hz heart rate through the exact same interface as a real sensor, so the
-full flow — connect, live BPM, pulse animation, disconnect — works on any
-simulator.
+**Without hardware:** summon a demo device (**Demo HRM n**) — a virtual
+sensor that advertises and streams synthetic ~1 Hz heart rate through the
+exact same interface and staleness rules as real hardware, so the full
+flow works on any simulator. Until the on-device demo surface lands, use
+`demoMonitor.summon()` from the dev-client debugger console.
 
 ## How it works
 
@@ -38,7 +39,7 @@ subscribing to the standard Heart Rate Measurement characteristic.
 src/ble/HeartRateMonitor.ts        the seam: scan / connect / samples
 ├── BleHeartRateMonitor.ts         real sensors (react-native-ble-plx),
 │                                  bounded auto-reconnect on drops
-├── FakeHeartRateMonitor.ts        the demo sensor
+├── DemoHeartRateMonitor.ts        summoned virtual sensors (demo mode)
 └── parseHeartRateMeasurement.ts   spec-complete 0x2A37 parser
 
 src/store/heartRateStore.ts        Zustand vanilla store (factory, DI):

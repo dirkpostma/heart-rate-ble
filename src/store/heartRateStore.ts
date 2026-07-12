@@ -41,14 +41,14 @@ export type HeartRateStore = StoreApi<HeartRateState> & {
 /**
  * Drives the whole two-screen flow against any set of HeartRateMonitor
  * sources: scanning fans out to all of them, connecting routes to the
- * one that owns the chosen device. Vanilla store so every timing rule
+ * source that reported the device. Vanilla store so every timing rule
  * lives outside React and is testable with fake timers alone.
  */
-export function createHeartRateStore(
-  monitorFor: (device: DiscoveredDevice) => HeartRateMonitor,
-  scanSources: HeartRateMonitor[],
-): HeartRateStore {
+export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRateStore {
   const lastSeen: Record<string, number> = {};
+  // Which source reported each device id — ownership is a fact the store
+  // observed during scan fan-out, not a question to ask sources (#16).
+  const sourceOf = new Map<string, HeartRateMonitor>();
   let activeMonitor: HeartRateMonitor | null = null;
   let staleTimer: ReturnType<typeof setInterval> | null = null;
   let destroyed = false;
@@ -75,8 +75,7 @@ export function createHeartRateStore(
     const prev = store.getState().devices;
     let changed = false;
     const next = prev.map((device) => {
-      const stale =
-        !device.isDemo && Date.now() - (lastSeen[device.id] ?? 0) > DEVICE_STALE_MS;
+      const stale = Date.now() - (lastSeen[device.id] ?? 0) > DEVICE_STALE_MS;
       if (stale === device.stale) return device;
       changed = true;
       return { ...device, stale };
@@ -90,6 +89,7 @@ export function createHeartRateStore(
     scanSources.forEach((source) =>
       source.startScan(
         (device) => {
+          sourceOf.set(device.id, source);
           lastSeen[device.id] = Date.now();
           const seen: ScannedDevice = { ...device, stale: false };
           store.setState((state) => ({
@@ -140,7 +140,11 @@ export function createHeartRateStore(
   }
 
   async function connect(device: DiscoveredDevice): Promise<void> {
-    const monitor = monitorFor(device);
+    const monitor = sourceOf.get(device.id);
+    if (!monitor) {
+      store.setState({ error: `${device.name} was not reported by any scan source` });
+      return;
+    }
     store.setState({ connectingId: device.id, error: null });
     syncScan();
     const offSample = monitor.onSample((sample) => store.setState({ sample }));

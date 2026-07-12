@@ -1,22 +1,20 @@
 import { useStore } from 'zustand';
 import { BleHeartRateMonitor } from '../ble/BleHeartRateMonitor';
-import { FakeHeartRateMonitor } from '../ble/FakeHeartRateMonitor';
-import { DiscoveredDevice } from '../ble/HeartRateMonitor';
+import { DemoHeartRateMonitor } from '../ble/DemoHeartRateMonitor';
 import { createHeartRateStore, HeartRateState, HeartRateStore } from './heartRateStore';
 
-const fakeMonitor = new FakeHeartRateMonitor();
+/** Exported so the demo surface can summon and control virtual devices. */
+export const demoMonitor = new DemoHeartRateMonitor();
 const bleMonitor = new BleHeartRateMonitor();
 
-/** The app's one store instance, wired to the real and demo sensors. */
-export const heartRateStore = createHeartRateStore(
-  (device: DiscoveredDevice) => (device.isDemo ? fakeMonitor : bleMonitor),
-  [fakeMonitor, bleMonitor],
-);
+/** The app's one store instance, wired to the demo and real sensors. */
+export const heartRateStore = createHeartRateStore([demoMonitor, bleMonitor]);
 
-// Dev-only handle so the store can be driven from the debugger — e.g.
-// connecting the demo sensor to stage screenshots on the BLE-less simulator.
+// Dev-only handles so the store and demo devices can be driven from the
+// debugger — e.g. summoning a device to stage screenshots on the
+// BLE-less simulator.
 if (__DEV__) {
-  (globalThis as { heartRateStore?: HeartRateStore }).heartRateStore = heartRateStore;
+  Object.assign(globalThis as object, { heartRateStore, demoMonitor });
 }
 
 /** Thin subscription hook: components select exactly what they render. */

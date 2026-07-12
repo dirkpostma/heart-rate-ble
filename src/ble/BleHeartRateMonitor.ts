@@ -113,7 +113,6 @@ export class BleHeartRateMonitor implements HeartRateMonitor {
           id: device.id,
           name: device.name ?? device.localName ?? 'Heart-rate sensor',
           rssi: device.rssi,
-          isDemo: false,
         });
       }
     });

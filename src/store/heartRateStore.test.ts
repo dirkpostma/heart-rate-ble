@@ -7,8 +7,8 @@ import {
 } from '../ble/HeartRateMonitor';
 import { createHeartRateStore, DEVICE_STALE_MS, HeartRateStore } from './heartRateStore';
 
-const GARMIN: DiscoveredDevice = { id: 'garmin-1', name: 'Forerunner', rssi: -60, isDemo: false };
-const DEMO: DiscoveredDevice = { id: 'demo-sensor', name: 'Demo sensor', rssi: null, isDemo: true };
+const GARMIN: DiscoveredDevice = { id: 'garmin-1', name: 'Forerunner', rssi: -60 };
+const DEMO_HRM: DiscoveredDevice = { id: 'demo-hrm-1', name: 'Demo HRM 1', rssi: -58 };
 
 /**
  * Hand-driven HeartRateMonitor: tests advertise devices, emit samples
@@ -17,6 +17,7 @@ const DEMO: DiscoveredDevice = { id: 'demo-sensor', name: 'Demo sensor', rssi: n
  */
 class TestMonitor implements HeartRateMonitor {
   scanning = false;
+  lastConnectedId: string | null = null;
   connectImpl: (deviceId: string) => Promise<void> = async () => {};
   private onDevice: ((device: DiscoveredDevice) => void) | null = null;
   private onScanError: ((error: Error) => void) | null = null;
@@ -37,6 +38,7 @@ class TestMonitor implements HeartRateMonitor {
   }
 
   async connect(deviceId: string): Promise<void> {
+    this.lastConnectedId = deviceId;
     this.emitState('connecting');
     await this.connectImpl(deviceId);
     this.emitState('connected');
@@ -81,7 +83,7 @@ describe('createHeartRateStore', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     monitor = new TestMonitor();
-    store = createHeartRateStore(() => monitor, [monitor]);
+    store = createHeartRateStore([monitor]);
   });
 
   afterEach(() => {
@@ -89,7 +91,10 @@ describe('createHeartRateStore', () => {
     jest.useRealTimers();
   });
 
+  // The store only connects to devices it has seen advertised (that is
+  // how it learns which source owns them), so advertise first.
   const connectTo = async (device: DiscoveredDevice) => {
+    monitor.advertise(device);
     await store.getState().connect(device);
   };
 
@@ -115,12 +120,6 @@ describe('createHeartRateStore', () => {
       }
       expect(store.getState().devices[0].stale).toBe(false);
     });
-
-    it('never greys out the demo sensor', () => {
-      monitor.advertise(DEMO);
-      jest.advanceTimersByTime(DEVICE_STALE_MS * 10);
-      expect(store.getState().devices[0].stale).toBe(false);
-    });
   });
 
   describe('scan lifecycle', () => {
@@ -133,6 +132,7 @@ describe('createHeartRateStore', () => {
       let finishConnect!: () => void;
       monitor.connectImpl = () => new Promise((resolve) => (finishConnect = resolve));
 
+      monitor.advertise(GARMIN);
       const connecting = store.getState().connect(GARMIN);
       expect(store.getState().connectingId).toBe(GARMIN.id);
       expect(monitor.scanning).toBe(false);
@@ -179,6 +179,54 @@ describe('createHeartRateStore', () => {
 
       jest.advanceTimersByTime(DEVICE_STALE_MS * 10);
       expect(store.getState().devices[0].stale).toBe(false);
+    });
+  });
+
+  describe('multi-source routing', () => {
+    let second: TestMonitor;
+    let multiStore: HeartRateStore;
+
+    beforeEach(() => {
+      second = new TestMonitor();
+      multiStore = createHeartRateStore([monitor, second]);
+    });
+
+    afterEach(() => {
+      multiStore.destroy();
+    });
+
+    it('routes connect to the source that reported the device', async () => {
+      monitor.advertise(GARMIN);
+      second.advertise(DEMO_HRM);
+
+      await multiStore.getState().connect(DEMO_HRM);
+
+      expect(second.lastConnectedId).toBe(DEMO_HRM.id);
+      expect(monitor.lastConnectedId).toBeNull();
+      expect(multiStore.getState().connectedDevice).toEqual(DEMO_HRM);
+    });
+
+    it('sets the error state for a device no source reported', async () => {
+      await multiStore.getState().connect(GARMIN);
+
+      expect(multiStore.getState().error).toContain('Forerunner');
+      expect(multiStore.getState().connectingId).toBeNull();
+      expect(multiStore.getState().connectedDevice).toBeNull();
+      expect(multiStore.getState().scanning).toBe(true);
+    });
+
+    it('applies the staleness rule uniformly to devices from every source', () => {
+      monitor.advertise(GARMIN);
+      second.advertise(DEMO_HRM);
+
+      jest.advanceTimersByTime(DEVICE_STALE_MS + 1000);
+
+      const devices = multiStore.getState().devices;
+      expect(devices).toHaveLength(2);
+      expect(devices.every((device) => device.stale)).toBe(true);
+
+      second.advertise(DEMO_HRM);
+      expect(multiStore.getState().devices.find((d) => d.id === DEMO_HRM.id)?.stale).toBe(false);
     });
   });
 
