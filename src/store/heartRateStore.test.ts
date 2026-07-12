@@ -154,21 +154,37 @@ describe('createHeartRateStore', () => {
       expect(store.getState().scanning).toBe(true);
     });
 
-    it('resumes with a cleared list when the connection drops', async () => {
+    // A monitor-reported drop is not the user leaving: the live screen
+    // shows a "Connection lost" end state (#30) and scanning stays off
+    // until the user heads back to the device list.
+    it('holds the lost state on a drop: device and last sample kept, scanning off', async () => {
       await connectTo(GARMIN);
-      expect(monitor.scanning).toBe(false);
+      monitor.emitSample(72);
 
       monitor.emitState('disconnected');
+      expect(store.getState().connectedDevice).toEqual(GARMIN);
+      expect(store.getState().sample?.bpm).toBe(72);
+      expect(store.getState().connectionState).toBe('disconnected');
+      expect(monitor.scanning).toBe(false);
+    });
+
+    it('leaving the lost state clears the device and resumes with a cleared list', async () => {
+      await connectTo(GARMIN);
+      monitor.emitState('disconnected');
+
+      store.getState().disconnect();
       expect(store.getState().connectedDevice).toBeNull();
+      expect(store.getState().sample).toBeNull();
       expect(monitor.scanning).toBe(true);
       expect(store.getState().devices).toEqual([]);
     });
 
-    it('does not resume after a drop while the user has scanning switched off', async () => {
+    it('does not resume after leaving the lost state while scanning is switched off', async () => {
       await connectTo(GARMIN);
       store.getState().setScanEnabled(false);
 
       monitor.emitState('disconnected');
+      store.getState().disconnect();
       expect(store.getState().connectedDevice).toBeNull();
       expect(monitor.scanning).toBe(false);
     });
