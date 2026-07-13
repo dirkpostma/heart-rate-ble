@@ -29,7 +29,8 @@
       "package": "dev.dirkpostma.heartrateble",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0D1117"
+        "backgroundImage": "./assets/adaptive-icon-background.png",
+        "backgroundColor": "#E8234B"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
