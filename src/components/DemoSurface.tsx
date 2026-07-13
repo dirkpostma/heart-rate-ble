@@ -12,8 +12,10 @@ import { DemoProfile, PROFILE_LABEL } from '../ble/DemoHeartRateMonitor';
 import { demoMonitor, useHeartRate } from '../store/appStore';
 import { colors, spacing } from '../theme';
 
-const PILL = { width: 54, height: 24 };
-const PANEL_WIDTH = 264;
+const PILL = { width: 92, height: 40 };
+// 288 + 2 * EDGE.side fills a 320 pt screen exactly — the floor for
+// supported devices — while giving the 36 pt action targets room.
+const PANEL_WIDTH = 288;
 // Bottom inset keeps the default position clear of the Disconnect
 // button and version footer. Top must clear the iOS Notification Center
 // pull-down: with the 12 pt hitSlop a grab can start that far above the
@@ -42,6 +44,10 @@ const HELP_ROWS = [
   {
     glyph: '●',
     text: 'Green means connected.',
+  },
+  {
+    glyph: '⠿',
+    text: 'Drag the grip — or the DEMO pill — to move this panel; it snaps to corners and edges.',
   },
   {
     glyph: '＋',
@@ -94,6 +100,33 @@ function anchorPoint({ row, col }: Anchor, frame: Size, size: Size): { x: number
   return { x, y };
 }
 
+/**
+ * Offset of the panel's center from its resting position at scale 0,
+ * chosen so the edge it is anchored to stays pinned: the panel unfolds
+ * out of its snap corner instead of ballooning from its center.
+ */
+function scaleOrigin({ row, col }: Anchor, size: Size): { x: number; y: number } {
+  const x = col === 'left' ? -size.width / 2 : col === 'right' ? size.width / 2 : 0;
+  const y = row === 'top' ? -size.height / 2 : row === 'bottom' ? size.height / 2 : 0;
+  return { x, y };
+}
+
+// The "you can drag this" affordance shared by the pill and the panel
+// header. View-drawn like the chevron (#24) so it can't drift on a text
+// baseline.
+function DotGrip() {
+  return (
+    <View style={styles.grip}>
+      {[0, 1, 2].map((rowIndex) => (
+        <View key={rowIndex} style={styles.gripRow}>
+          <View style={styles.gripDot} />
+          <View style={styles.gripDot} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function nearestAnchor(pos: { x: number; y: number }, frame: Size, size: Size): Anchor {
   let best = ANCHORS[0];
   let bestDistance = Infinity;
@@ -140,6 +173,18 @@ export function DemoSurface() {
     return () => pan.removeListener(subscription);
   }, [pan]);
 
+  // Unfold progress: 0 = pill, 1 = panel. Animated alongside pan so the
+  // two states read as one object changing shape (#28) rather than a
+  // dialog replacing a button.
+  const openAnim = useRef(new Animated.Value(0)).current;
+  const [animOrigin, setAnimOrigin] = useState({ x: 0, y: 0 });
+  const [closing, setClosing] = useState(false);
+  const pendingOpenAnimRef = useRef(false);
+
+  const animateOpen = () => {
+    Animated.spring(openAnim, { toValue: 1, friction: 7, useNativeDriver: false }).start();
+  };
+
   const snapTo = (next: Anchor, target: Size, size: Size) => {
     sessionAnchor = next;
     Animated.spring(pan, {
@@ -170,18 +215,37 @@ export function DemoSurface() {
     const current = frameRef.current;
     const size = panelSizeRef.current;
     // First open has no measured size yet: the panel renders hidden and
-    // onPanelLayout places it.
-    if (current && size) pan.setValue(anchorPoint(sessionAnchor, current, size));
+    // onPanelLayout places it, then starts the unfold.
+    if (current && size) {
+      pan.setValue(anchorPoint(sessionAnchor, current, size));
+      setAnimOrigin(scaleOrigin(sessionAnchor, size));
+      animateOpen();
+    } else {
+      pendingOpenAnimRef.current = true;
+    }
     setOpen(true);
   };
 
   const collapse = () => {
-    const current = frameRef.current;
-    if (current) pan.setValue(anchorPoint(sessionAnchor, current, PILL));
-    setOpen(false);
-    // Help is read-once: reopening the panel returns to the compact
-    // working layout, not a wall of text.
-    setHelpOpen(false);
+    if (closing) return;
+    const size = panelSizeRef.current;
+    if (size) setAnimOrigin(scaleOrigin(sessionAnchor, size));
+    setClosing(true);
+    Animated.spring(openAnim, {
+      toValue: 0,
+      friction: 7,
+      // A refold that overshoots would swing through negative scale.
+      overshootClamping: true,
+      useNativeDriver: false,
+    }).start(() => {
+      setClosing(false);
+      setOpen(false);
+      // Help is read-once: reopening the panel returns to the compact
+      // working layout, not a wall of text.
+      setHelpOpen(false);
+      const current = frameRef.current;
+      if (current) pan.setValue(anchorPoint(sessionAnchor, current, PILL));
+    });
   };
 
   const pillResponder = useRef(
@@ -235,6 +299,11 @@ export function DemoSurface() {
     if (current && !draggingRef.current) {
       pan.setValue(anchorPoint(sessionAnchor, current, size));
     }
+    if (pendingOpenAnimRef.current) {
+      pendingOpenAnimRef.current = false;
+      setAnimOrigin(scaleOrigin(sessionAnchor, size));
+      animateOpen();
+    }
   };
 
   return (
@@ -245,30 +314,78 @@ export function DemoSurface() {
           hitSlop={12}
           {...pillResponder.panHandlers}
         >
+          <DotGrip />
           <Text style={styles.pillText}>DEMO</Text>
+          {devices.length > 0 && (
+            <View
+              style={[
+                styles.pillDot,
+                devices.some((device) => device.id === connectedId) && styles.statusDotConnected,
+              ]}
+            />
+          )}
         </Animated.View>
       )}
       {frame !== null && open && (
         <Animated.View
           style={[
             styles.panel,
+            {
+              opacity: openAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 1],
+                extrapolate: 'clamp',
+              }),
+              // The origin translates pin the anchored edge while the
+              // panel scales, so it unfolds out of the pill's snap
+              // corner rather than from its own center.
+              transform: [
+                ...pan.getTranslateTransform(),
+                {
+                  translateX: openAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [animOrigin.x, 0],
+                    extrapolate: 'clamp',
+                  }),
+                },
+                {
+                  translateY: openAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [animOrigin.y, 0],
+                    extrapolate: 'clamp',
+                  }),
+                },
+                {
+                  scale: openAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.25, 1],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ],
+            },
             panelSize === null && styles.panelUnmeasured,
-            { transform: pan.getTranslateTransform() },
           ]}
+          pointerEvents={closing ? 'none' : 'auto'}
           onLayout={onPanelLayout}
         >
           <View style={styles.header}>
             <View style={styles.dragHandle} {...headerResponder.panHandlers}>
+              <DotGrip />
               <Text style={styles.title}>Demo devices</Text>
             </View>
             <Pressable
-              style={styles.helpBtn}
+              style={({ pressed }) => [styles.helpBtn, pressed && styles.pressed]}
               hitSlop={8}
               onPress={() => setHelpOpen((current) => !current)}
             >
               <Text style={[styles.helpGlyph, helpOpen && styles.helpGlyphOn]}>?</Text>
             </Pressable>
-            <Pressable style={styles.collapseBtn} hitSlop={8} onPress={collapse}>
+            <Pressable
+              style={({ pressed }) => [styles.collapseBtn, pressed && styles.pressed]}
+              hitSlop={8}
+              onPress={collapse}
+            >
               <View style={styles.chevron} />
             </Pressable>
           </View>
@@ -292,13 +409,15 @@ export function DemoSurface() {
               </Text>
               <View style={styles.actions}>
                 <Pressable
-                  hitSlop={6}
+                  hitSlop={4}
+                  style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
                   onPress={() => demoMonitor.setAdvertising(device.id, !device.advertising)}
                 >
                   <Text style={[styles.icon, device.advertising && styles.iconOn]}>⏻</Text>
                 </Pressable>
                 <Pressable
-                  hitSlop={6}
+                  hitSlop={4}
+                  style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
                   disabled={connectedId !== device.id}
                   onPress={() => demoMonitor.dropConnection()}
                 >
@@ -306,18 +425,24 @@ export function DemoSurface() {
                     ⚡
                   </Text>
                 </Pressable>
-                <Pressable hitSlop={6} onPress={() => demoMonitor.dismiss(device.id)}>
+                <Pressable
+                  hitSlop={4}
+                  style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
+                  onPress={() => demoMonitor.dismiss(device.id)}
+                >
                   <Text style={styles.icon}>✕</Text>
                 </Pressable>
               </View>
             </View>
           ))}
-          {devices.length === 0 && <Text style={styles.empty}>No demo devices</Text>}
+          {devices.length === 0 && (
+            <Text style={styles.empty}>No demo devices — add one below ↓</Text>
+          )}
           <View style={styles.spawnRow}>
             {(Object.keys(PROFILE_LABEL) as DemoProfile[]).map((profile) => (
               <Pressable
                 key={profile}
-                style={styles.spawnBtn}
+                style={({ pressed }) => [styles.spawnBtn, pressed && styles.pressed]}
                 onPress={() => demoMonitor.summon(profile)}
               >
                 <Text style={styles.spawnText}>＋{PROFILE_LABEL[profile]}</Text>
@@ -345,10 +470,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.textDim,
     opacity: 0.75,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
   },
-  pillText: { color: colors.textDim, fontSize: 10, fontWeight: '600', letterSpacing: 1 },
+  pillText: { color: colors.textDim, fontSize: 13, fontWeight: '600', letterSpacing: 1 },
+  // Mirrors the panel rows' status dot: green while a demo device is
+  // connected, dim grey while devices merely exist, absent when none —
+  // a collapsed pill still reports what the mocks are doing.
+  pillDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.textDim },
+  // View-drawn like the chevron (#24): text glyphs drift on their
+  // baseline and render inconsistently across platform fonts.
+  grip: { gap: 3 },
+  gripRow: { flexDirection: 'row', gap: 3 },
+  gripDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.textDim },
   panel: {
     position: 'absolute',
     left: 0,
@@ -371,19 +507,27 @@ const styles = StyleSheet.create({
   // The title strip is the panel's drag handle (#28): a 28 pt grab area
   // matching the collapse button, so drags never fight the row and
   // spawn Pressables below.
-  dragHandle: { flex: 1, height: 28, justifyContent: 'center', marginVertical: -6 },
+  dragHandle: {
+    flex: 1,
+    height: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginVertical: -6,
+  },
   title: { color: colors.text, fontSize: 13, fontWeight: '700' },
   // Help opener lives in the title strip like the chevron (#33): a
   // sibling Pressable outside the drag handle, so it can never become a
   // second drag-gesture claimant (#28).
   helpBtn: {
-    width: 28,
-    height: 28,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: -6,
   },
-  helpGlyph: { color: colors.textDim, fontSize: 13, fontWeight: '700' },
+  helpGlyph: { color: colors.textDim, fontSize: 16, fontWeight: '700' },
   helpGlyphOn: { color: colors.accent },
   help: {
     borderTopWidth: 1,
@@ -398,16 +542,17 @@ const styles = StyleSheet.create({
   // Drawn chevron instead of a text "⌄": no baseline drift against the
   // title, and a real 28 pt tap target (#24).
   collapseBtn: {
-    width: 28,
-    height: 28,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: -6,
     marginRight: -6,
   },
   chevron: {
-    width: 10,
-    height: 10,
+    width: 13,
+    height: 13,
     borderRightWidth: 2,
     borderBottomWidth: 2,
     borderColor: colors.textDim,
@@ -431,9 +576,19 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.border,
     paddingLeft: spacing.sm,
   },
-  icon: { color: colors.textDim, fontSize: 14, padding: 2 },
+  // 36 pt boxes + 4 pt hitSlop ≈ Apple's 44 pt target; the glyph stays
+  // modest so the panel keeps its compact hierarchy.
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  icon: { color: colors.textDim, fontSize: 17 },
   iconOn: { color: colors.accent },
   iconDisabled: { opacity: 0.3 },
+  pressed: { backgroundColor: colors.border },
   empty: { color: colors.textDim, fontSize: 12, textAlign: 'center', marginVertical: spacing.xs },
   spawnRow: { flexDirection: 'row', gap: 6, marginTop: 2 },
   spawnBtn: {
@@ -442,7 +597,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     alignItems: 'center',
-    paddingVertical: 5,
+    paddingVertical: 10,
   },
-  spawnText: { color: colors.accent, fontSize: 12, fontWeight: '600' },
+  spawnText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
 });
