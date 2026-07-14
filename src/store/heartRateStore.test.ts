@@ -330,6 +330,41 @@ describe('createHeartRateStore', () => {
     });
   });
 
+  // iOS state restoration relaunches the app with the sensor still
+  // connected: the link exists natively, so the store adopts it instead
+  // of connecting.
+  describe('adopting a restored connection', () => {
+    it('wires the monitor without a connect call and stops scanning', () => {
+      store.getState().adopt(GARMIN, monitor);
+
+      expect(store.getState().connectedDevice).toEqual(GARMIN);
+      expect(store.getState().connectionState).toBe('connected');
+      expect(monitor.lastConnectedId).toBeNull();
+      expect(monitor.scanning).toBe(false);
+
+      monitor.emitSample(64);
+      expect(store.getState().sample?.bpm).toBe(64);
+    });
+
+    it('disconnects an adopted connection like any other', () => {
+      store.getState().adopt(GARMIN, monitor);
+
+      store.getState().disconnect();
+
+      expect(store.getState().connectedDevice).toBeNull();
+      expect(store.getState().sample).toBeNull();
+      expect(monitor.scanning).toBe(true);
+    });
+
+    it('yields to a session already in progress', async () => {
+      await connectTo(GARMIN);
+
+      store.getState().adopt({ id: 'other-1', name: 'Other', rssi: null }, monitor);
+
+      expect(store.getState().connectedDevice).toEqual(GARMIN);
+    });
+  });
+
   describe('scan errors', () => {
     it('surfaces the error but keeps the session alive for other sources', () => {
       monitor.advertise(GARMIN);
