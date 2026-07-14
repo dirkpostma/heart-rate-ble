@@ -69,6 +69,38 @@ three defect fixes went out in hours without burning build quota or
 waiting on App Store processing. The version footer shows binary + OTA
 bundle so it's always clear what's actually running.
 
+## Live surfaces: Live Activity + home-screen widget
+
+Live heart rate while the app is backgrounded (map #45). One WidgetKit
+extension target (`targets/widgets`, via `@bacons/apple-targets`) hosts
+both surfaces; a local Expo module (`modules/live-activity`) bridges
+ActivityKit's start/update/end to JS. The `HeartRateAttributes` struct is
+deliberately duplicated between the two — a pod can't share source with
+an Xcode target — and both copies say so.
+
+The surfaces are **one more store listener**
+(`src/live/liveSurfaceDriver.ts`), beside the UI: demo devices drive the
+Dynamic Island exactly like the Garmin, and the lifecycle rules are
+fake-timer-testable. Those rules (grilled in #48): start on the first
+reading, never a placeholder; manual disconnect ends immediately; an
+unexpected drop goes visibly stale at once and waits out a 5-minute grace
+before ending. Updates are coalesced (BPM change + 2.5 s floor, 15 s
+staleDate refresh) because a lock-screen glance can't read 1 Hz jitter;
+every reading still reaches the widget's app group, but its timeline
+reloads only on session transitions — the age label ticks as
+relative-date text for free.
+
+Background BLE (researched in #47): `bluetooth-central` wakes the app per
+notification, so the stream outlives suspension while connected. Two
+timer traps got explicit fixes: a background drop hands iOS a single
+**no-timeout pending connect** (the JS backoff loop would freeze after
+its first await), and a system kill is survived via
+`restoreStateIdentifier` — the store *adopts* the restored link instead
+of connecting. Known honest gaps: force-quit and Bluetooth-off are
+unrecoverable by design, ActivityKit caps an activity at 8 h, and a
+never-woken app can't end its activity early (the staleDate keeps the UI
+truthful meanwhile).
+
 ## Scope
 
 The *core loop* only. Cut deliberately: picture-in-picture

@@ -4,6 +4,7 @@ import {
   DiscoveredDevice,
   HeartRateMonitor,
   HeartRateSample,
+  Unsubscribe,
 } from '../ble/HeartRateMonitor';
 
 // A broadcasting watch advertises several times per second regardless
@@ -36,6 +37,12 @@ export interface HeartRateState {
   sample: HeartRateSample | null;
   setScanEnabled: (enabled: boolean) => void;
   connect: (device: DiscoveredDevice) => Promise<void>;
+  /**
+   * Takes over a connection that already exists natively — iOS BLE state
+   * restoration relaunches the app with the sensor still attached, so
+   * there is nothing to connect to, only listeners to wire up.
+   */
+  adopt: (device: DiscoveredDevice, source: HeartRateMonitor) => void;
   disconnect: () => void;
   rescan: () => void;
 }
@@ -77,6 +84,7 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
     sample: null,
     setScanEnabled,
     connect,
+    adopt,
     disconnect,
     rescan,
   }));
@@ -154,14 +162,9 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
     syncScan();
   }
 
-  async function connect(device: DiscoveredDevice): Promise<void> {
-    const monitor = sourceOf.get(device.id);
-    if (!monitor) {
-      store.setState({ connectError: `${device.name} was not reported by any scan source` });
-      return;
-    }
-    store.setState({ connectingId: device.id, connectError: null, error: null });
-    syncScan();
+  // Shared by connect() and adopt(): route samples and connection state
+  // into the store until the monitor reports its disconnect.
+  function wireMonitor(monitor: HeartRateMonitor): { offSample: Unsubscribe; offState: Unsubscribe } {
     const offSample = monitor.onSample((sample) => store.setState({ sample }));
     const offState = monitor.onConnectionState((state) => {
       store.setState({ connectionState: state });
@@ -179,6 +182,18 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
         }
       }
     });
+    return { offSample, offState };
+  }
+
+  async function connect(device: DiscoveredDevice): Promise<void> {
+    const monitor = sourceOf.get(device.id);
+    if (!monitor) {
+      store.setState({ connectError: `${device.name} was not reported by any scan source` });
+      return;
+    }
+    store.setState({ connectingId: device.id, connectError: null, error: null });
+    syncScan();
+    const { offSample, offState } = wireMonitor(monitor);
     try {
       await monitor.connect(device.id);
       activeMonitor = monitor;
@@ -195,6 +210,18 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
       store.setState({ connectingId: null });
       syncScan();
     }
+  }
+
+  function adopt(device: DiscoveredDevice, source: HeartRateMonitor): void {
+    // Restoration races app startup; an already-started session wins.
+    if (store.getState().connectedDevice !== null || store.getState().connectingId !== null) {
+      return;
+    }
+    sourceOf.set(device.id, source);
+    wireMonitor(source);
+    activeMonitor = source;
+    store.setState({ connectedDevice: device, connectionState: 'connected', connectError: null });
+    syncScan();
   }
 
   // Also the "Back to devices" acknowledgment from the lost state, where
