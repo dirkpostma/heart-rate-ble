@@ -2,7 +2,7 @@
   "expo": {
     "name": "Heart Rate BLE",
     "slug": "heart-rate-ble",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -21,8 +21,13 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "dev.dirkpostma.heartrateble",
+      "appleTeamId": "6EXTSNNTE6",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.dev.dirkpostma.heartrateble"]
       }
     },
     "android": {
@@ -48,11 +53,21 @@
       [
         "react-native-ble-plx",
         {
-          "isBackgroundEnabled": false,
+          "isBackgroundEnabled": true,
+          "modes": ["central"],
           "neverForLocation": true,
           "bluetoothAlwaysPermission": "This app uses Bluetooth to connect to heart rate sensors such as your Garmin watch."
         }
-      ]
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.2"
+          }
+        }
+      ],
+      "@bacons/apple-targets"
     ],
     "extra": {
       "eas": {
