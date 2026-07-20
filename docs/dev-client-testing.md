@@ -34,8 +34,8 @@ into the ad hoc provisioning profile.
 
 ## Non-interactive Apple auth (the key trick)
 
-The ASC API key used for `eas submit` also unlocks device registration and
-credential creation without any Apple ID login. Take the values from the
+The App Store Connect (ASC) API key used for `eas submit` also unlocks
+device registration and credential creation without any Apple ID login. Take the values from the
 `submit.production.ios` block of `eas.json` (key path, key ID, issuer ID,
 team ID):
 
