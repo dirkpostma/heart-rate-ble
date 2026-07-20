@@ -40,11 +40,21 @@ export function LiveScreen({ navigation }: Props) {
     navigation.setOptions({ title: deviceName });
   }, [navigation, deviceName]);
 
-  // Disconnecting is user-initiated navigation back to Scan (distinct from
-  // "no auto-pop" — that rule is about not reacting to store state; this is
-  // a button press). Tear down the link, then return to the device list.
+  // Leaving Live *always* tears down the link, however it happens — the
+  // Disconnect button, the header back chevron, or the iOS swipe-back
+  // gesture. beforeRemove is the one choke point every exit passes through,
+  // so the store can never be left thinking a device is still connected
+  // (which would stop scanning and leave Scan showing no new devices).
+  // disconnect() is safe to call when already disconnected.
+  useEffect(() => {
+    const unsub = navigation.addListener('beforeRemove', () => {
+      disconnect();
+    });
+    return unsub;
+  }, [navigation, disconnect]);
+
+  // The button just navigates; beforeRemove owns the teardown.
   const onDisconnect = () => {
-    disconnect();
     navigation.popTo('Scan');
   };
 
