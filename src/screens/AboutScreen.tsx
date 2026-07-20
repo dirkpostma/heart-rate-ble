@@ -6,15 +6,9 @@ const REPO_URL = 'https://github.com/dirkpostma/heart-rate-ble';
 // Same URL the App Store listing declares as the privacy policy.
 const PRIVACY_URL = `${REPO_URL}/blob/main/PRIVACY.md`;
 
-export function AboutScreen({ onClose }: { onClose: () => void }) {
+export function AboutScreen() {
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>About</Text>
-        <Pressable onPress={onClose} hitSlop={12} style={({ pressed }) => pressed && styles.pressed}>
-          <Text style={styles.close}>Done</Text>
-        </Pressable>
-      </View>
       <ScrollView contentContainerStyle={styles.body}>
         <Text style={styles.paragraph}>
           Heart Rate BLE shows the live heart rate from your Bluetooth chest strap or sports watch —
@@ -50,22 +44,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.lg,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  close: {
-    color: colors.accent,
-    fontSize: 17,
-    fontWeight: '600',
   },
   body: {
     paddingTop: spacing.lg,

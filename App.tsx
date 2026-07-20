@@ -1,39 +1,73 @@
-import { useState } from 'react';
-import { StatusBar, StyleSheet } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import {
+  DarkTheme,
+  NavigationContainer,
+  type Theme,
+} from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DemoSurface } from './src/components/DemoSurface';
+import { InfoButton } from './src/components/InfoButton';
 import { UpdateBanner } from './src/components/UpdateBanner';
 import { AboutScreen } from './src/screens/AboutScreen';
 import { LiveScreen } from './src/screens/LiveScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
-import { useHeartRate } from './src/store/appStore';
 import { colors } from './src/theme';
 
-export default function App() {
-  const connected = useHeartRate((state) => state.connectedDevice !== null);
-  const [aboutVisible, setAboutVisible] = useState(false);
+export type RootStackParamList = {
+  Scan: undefined;
+  Live: undefined;
+  About: undefined;
+};
 
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// Match the app's dark surface so the native header and card backgrounds
+// don't flash the default light chrome.
+const navTheme: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: colors.background,
+    card: colors.background,
+    text: colors.text,
+    border: colors.border,
+    primary: colors.accent,
+  },
+};
+
+export default function App() {
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-        <StatusBar barStyle="light-content" />
-        <UpdateBanner />
-        {aboutVisible ? (
-          <AboutScreen onClose={() => setAboutVisible(false)} />
-        ) : connected ? (
-          <LiveScreen />
-        ) : (
-          <ScanScreen onAboutPress={() => setAboutVisible(true)} />
-        )}
-        <DemoSurface />
-      </SafeAreaView>
+      <StatusBar barStyle="light-content" />
+      {/* UpdateBanner and DemoSurface stay mounted outside the navigator so
+          they persist across screen transitions. */}
+      <UpdateBanner />
+      <NavigationContainer theme={navTheme}>
+        <Stack.Navigator
+          initialRouteName="Scan"
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.background },
+            headerTitleStyle: { color: colors.text },
+            headerTintColor: colors.accent,
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        >
+          <Stack.Screen
+            name="Scan"
+            component={ScanScreen}
+            options={({ navigation }) => ({
+              title: 'Heart Rate BLE',
+              headerRight: () => (
+                <InfoButton onPress={() => navigation.navigate('About')} />
+              ),
+            })}
+          />
+          <Stack.Screen name="Live" component={LiveScreen} options={{ title: '' }} />
+          <Stack.Screen name="About" component={AboutScreen} options={{ title: 'About' }} />
+        </Stack.Navigator>
+      </NavigationContainer>
+      <DemoSurface />
     </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-});
