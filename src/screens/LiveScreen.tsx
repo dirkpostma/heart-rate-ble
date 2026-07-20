@@ -1,5 +1,7 @@
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { RootStackParamList } from '../../App';
 import { ConnectionState } from '../ble/HeartRateMonitor';
 import { PulsingHeart } from '../components/PulsingHeart';
 import { useHeartRate } from '../store/appStore';
@@ -19,17 +21,32 @@ const STATE_LABEL: Record<ConnectionState, string> = {
 // silence — not just disconnection — must surface in the UI.
 const STALE_AFTER_MS = 5000;
 
-export function LiveScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, 'Live'>;
+
+export function LiveScreen({ navigation }: Props) {
   const deviceName = useHeartRate((state) => state.connectedDevice?.name ?? '');
   const connectionState = useHeartRate((state) => state.connectionState);
   const sample = useHeartRate((state) => state.sample);
-  const onDisconnect = useHeartRate((state) => state.disconnect);
+  const disconnect = useHeartRate((state) => state.disconnect);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Surface the connected device as the native header title.
+  useEffect(() => {
+    navigation.setOptions({ title: deviceName });
+  }, [navigation, deviceName]);
+
+  // Disconnecting is user-initiated navigation back to Scan (distinct from
+  // "no auto-pop" — that rule is about not reacting to store state; this is
+  // a button press). Tear down the link, then return to the device list.
+  const onDisconnect = () => {
+    disconnect();
+    navigation.popTo('Scan');
+  };
 
   const lost = connectionState === 'disconnected';
   const stale =
@@ -40,7 +57,6 @@ export function LiveScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.deviceName}>{deviceName}</Text>
         <View style={styles.stateRow}>
           <View
             style={[
@@ -99,11 +115,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  deviceName: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: '600',
   },
   stateRow: {
     flexDirection: 'row',
