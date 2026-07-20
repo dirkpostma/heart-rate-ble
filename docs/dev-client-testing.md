@@ -12,7 +12,7 @@ State that already exists — do not redo it:
   (`eas device:list` shows it).
 - Ad hoc credentials (distribution cert reused from production, ad hoc
   provisioning profiles for the app **and** the `HeartRateWidgets`
-  target) live on EAS.
+  target) live on EAS (Expo Application Services).
 - The dev client is installed on the phone.
 
 ### Registering a new device
@@ -29,8 +29,8 @@ Open the URL on the device, install the profile
 - iOS **Stolen Device Protection** can impose a 1-hour security delay on
   profile installation when the phone is in an unfamiliar location.
 
-Devices must be registered **before** the build — the UDID list is baked
-into the ad hoc provisioning profile.
+Devices must be registered **before** the build — the UDID (Unique Device
+Identifier) list is baked into the ad hoc provisioning profile.
 
 ## Non-interactive Apple auth (the key trick)
 
@@ -96,7 +96,7 @@ Tunnel traps:
 
 - **Dev client + tunnel** — daily iteration: fast refresh, live logs,
   dev menu.
-- **TestFlight + EAS Update (OTA)** — final verification of a release
-  build. Never publish test JS to the `production` channel: App Store
+- **TestFlight + EAS Update (over-the-air, OTA)** — final verification of a
+  release build. Never publish test JS to the `production` channel: App Store
   users listen on it (runtimeVersion policy is `appVersion`, so same app
   version = same runtime).
