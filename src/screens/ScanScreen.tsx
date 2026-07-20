@@ -11,7 +11,7 @@ import { VersionFooter } from '../components/VersionFooter';
 import { useHeartRate } from '../store/appStore';
 import { colors, spacing } from '../theme';
 
-export function ScanScreen() {
+export function ScanScreen({ onAboutPress }: { onAboutPress: () => void }) {
   const devices = useHeartRate((state) => state.devices);
   const scanning = useHeartRate((state) => state.scanning);
   const scanEnabled = useHeartRate((state) => state.scanEnabled);
@@ -24,7 +24,17 @@ export function ScanScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Heart Rate BLE</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>Heart Rate BLE</Text>
+        <Pressable
+          onPress={onAboutPress}
+          hitSlop={12}
+          accessibilityLabel="About this app"
+          style={({ pressed }) => [styles.infoButton, pressed && styles.infoButtonPressed]}
+        >
+          <Text style={styles.infoGlyph}>i</Text>
+        </Pressable>
+      </View>
       <View style={styles.statusRow}>
         <Text style={styles.statusText}>
           {scanEnabled
@@ -91,11 +101,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
+  },
   title: {
     color: colors.text,
     fontSize: 28,
     fontWeight: '700',
-    marginTop: spacing.lg,
+  },
+  infoButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.textDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoButtonPressed: {
+    opacity: 0.6,
+  },
+  infoGlyph: {
+    color: colors.textDim,
+    fontSize: 15,
+    fontWeight: '600',
+    fontStyle: 'italic',
   },
   statusRow: {
     flexDirection: 'row',
