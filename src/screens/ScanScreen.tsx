@@ -84,15 +84,35 @@ export function ScanScreen({ navigation }: Props) {
           </Pressable>
         )}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            {scanEnabled
-              ? 'No sensors yet. Put your watch in Broadcast Heart Rate mode and keep it close.'
-              : 'Scanning is off. Flip the switch to look for sensors.'}
-          </Text>
+          <View style={styles.emptyBlock}>
+            <Text style={styles.empty}>
+              {scanEnabled
+                ? 'No sensors yet. Put your watch in Broadcast Heart Rate mode and keep it close.'
+                : 'Scanning is off. Flip the switch to look for sensors.'}
+            </Text>
+          </View>
         }
       />
+      {/* One always-present, prominent entry point to the connect-help
+          instructions — visible whether or not a device has shown up, so the
+          help page is never stranded. */}
+      <HelpLink onPress={() => navigation.navigate('ConnectHelp')} />
       <VersionFooter />
     </View>
+  );
+}
+
+// The always-visible "Can't find your device?" entry point to the connect-help
+// instruction screen.
+function HelpLink({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      style={({ pressed }) => pressed && styles.pressed}
+    >
+      <Text style={styles.helpLinkProminent}>Can’t find your device?</Text>
+    </Pressable>
   );
 }
 
@@ -154,10 +174,26 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: 13,
   },
+  emptyBlock: {
+    marginTop: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.md,
+  },
   empty: {
     color: colors.textDim,
     textAlign: 'center',
-    marginTop: spacing.xl,
     lineHeight: 20,
+  },
+  // Always-present entry point to the connect-help screen, prominent so it's
+  // easy to spot whether or not devices are listed.
+  helpLinkProminent: {
+    color: colors.accent,
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+  },
+  pressed: {
+    opacity: 0.6,
   },
 });

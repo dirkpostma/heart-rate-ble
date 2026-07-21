@@ -10,6 +10,7 @@ import { DemoSurface } from './src/components/DemoSurface';
 import { InfoButton } from './src/components/InfoButton';
 import { UpdateBanner } from './src/components/UpdateBanner';
 import { AboutScreen } from './src/screens/AboutScreen';
+import { ConnectHelpScreen } from './src/screens/ConnectHelpScreen';
 import { LiveScreen } from './src/screens/LiveScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
 import { colors } from './src/theme';
@@ -18,6 +19,7 @@ export type RootStackParamList = {
   Scan: undefined;
   Live: undefined;
   About: undefined;
+  ConnectHelp: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -65,6 +67,11 @@ export default function App() {
           />
           <Stack.Screen name="Live" component={LiveScreen} options={{ title: '' }} />
           <Stack.Screen name="About" component={AboutScreen} options={{ title: 'About' }} />
+          <Stack.Screen
+            name="ConnectHelp"
+            component={ConnectHelpScreen}
+            options={{ title: 'Connect your device' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
       <DemoSurface />

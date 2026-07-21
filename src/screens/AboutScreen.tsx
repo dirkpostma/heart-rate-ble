@@ -1,4 +1,6 @@
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { RootStackParamList } from '../../App';
 import { VersionFooter } from '../components/VersionFooter';
 import { colors, spacing } from '../theme';
 
@@ -6,7 +8,9 @@ const REPO_URL = 'https://github.com/dirkpostma/heart-rate-ble';
 // Same URL the App Store listing declares as the privacy policy.
 const PRIVACY_URL = `${REPO_URL}/blob/main/PRIVACY.md`;
 
-export function AboutScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, 'About'>;
+
+export function AboutScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.body}>
@@ -16,9 +20,14 @@ export function AboutScreen() {
           tracking: your heart rate never leaves your device, and the app collects no data at all.
         </Text>
         <View style={styles.links}>
-          <LinkRow label="Privacy policy" url={PRIVACY_URL} />
+          <LinkRow
+            label="How to connect my device"
+            onPress={() => navigation.navigate('ConnectHelp')}
+          />
           <View style={styles.divider} />
-          <LinkRow label="Support & feedback" url={REPO_URL} />
+          <LinkRow label="Privacy policy" onPress={() => Linking.openURL(PRIVACY_URL)} />
+          <View style={styles.divider} />
+          <LinkRow label="Support & feedback" onPress={() => Linking.openURL(REPO_URL)} />
         </View>
         <Text style={styles.credit}>Made by Dirk Postma</Text>
       </ScrollView>
@@ -27,11 +36,11 @@ export function AboutScreen() {
   );
 }
 
-function LinkRow({ label, url }: { label: string; url: string }) {
+function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
-      onPress={() => Linking.openURL(url)}
+      onPress={onPress}
     >
       <Text style={styles.linkLabel}>{label}</Text>
       <Text style={styles.linkChevron}>›</Text>
