@@ -90,33 +90,28 @@ export function ScanScreen({ navigation }: Props) {
                 ? 'No sensors yet. Put your watch in Broadcast Heart Rate mode and keep it close.'
                 : 'Scanning is off. Flip the switch to look for sensors.'}
             </Text>
-            <HelpLink prominent onPress={() => navigation.navigate('ConnectHelp')} />
           </View>
         }
       />
-      {/* Quieter footer link, but only when the list already shows devices — an
-          empty list surfaces the prominent link above, so a second copy here
-          would just repeat it. */}
-      {devices.length > 0 && (
-        <HelpLink onPress={() => navigation.navigate('ConnectHelp')} />
-      )}
+      {/* One always-present, prominent entry point to the connect-help
+          instructions — visible whether or not a device has shown up, so the
+          help page is never stranded. */}
+      <HelpLink onPress={() => navigation.navigate('ConnectHelp')} />
       <VersionFooter />
     </View>
   );
 }
 
-// One entry point to the connect-help screen, rendered two ways: a prominent
-// nudge in the empty state and a quiet footer link once devices appear.
-function HelpLink({ prominent, onPress }: { prominent?: boolean; onPress: () => void }) {
+// The always-visible "Can't find your device?" entry point to the connect-help
+// instruction screen.
+function HelpLink({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       hitSlop={8}
       style={({ pressed }) => pressed && styles.pressed}
     >
-      <Text style={prominent ? styles.helpLinkProminent : styles.helpLink}>
-        Can’t find your device?
-      </Text>
+      <Text style={styles.helpLinkProminent}>Can’t find your device?</Text>
     </Pressable>
   );
 }
@@ -189,17 +184,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  // Prominent in the empty state — the moment users are most likely stuck.
+  // Always-present entry point to the connect-help screen, prominent so it's
+  // easy to spot whether or not devices are listed.
   helpLinkProminent: {
     color: colors.accent,
     fontSize: 15,
     fontWeight: '600',
-    textAlign: 'center',
-  },
-  // Always-present footer link, quieter so it doesn't compete with the list.
-  helpLink: {
-    color: colors.textDim,
-    fontSize: 13,
     textAlign: 'center',
     paddingVertical: spacing.sm,
   },
