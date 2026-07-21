@@ -9,12 +9,20 @@
 export type HelpSection = {
   /** Stable key for list rendering and collapse state. */
   id: string;
+  /**
+   * Device-type grouping the section sits under (type-first, brands nested).
+   * Consecutive sections sharing a group render under one group heading;
+   * sections with no group render on their own.
+   */
+  group?: string;
   title: string;
   /** One-line orientation shown under the title, before the steps. */
   intro?: string;
   steps: string[];
   /** Optional trailing note — gotchas that aren't a numbered step. */
   note?: string;
+  /** Optional trailing line rendered as a tappable link to support. */
+  support?: string;
 };
 
 // The app only sees devices that broadcast over standard Bluetooth LE. The two
@@ -37,6 +45,7 @@ export const connectHelpSections: HelpSection[] = [
   },
   {
     id: 'garmin-watch',
+    group: 'Sports watches',
     title: 'Garmin watches',
     intro: 'Turn on Broadcast Heart Rate — the menu path varies by model.',
     steps: [
@@ -50,6 +59,7 @@ export const connectHelpSections: HelpSection[] = [
   },
   {
     id: 'polar-watch',
+    group: 'Sports watches',
     title: 'Polar watches',
     intro: 'Polar shares heart rate only while a workout is starting or running.',
     steps: [
@@ -63,7 +73,8 @@ export const connectHelpSections: HelpSection[] = [
   },
   {
     id: 'apple-watch',
-    title: 'Apple Watch & other smartwatches',
+    group: 'Smartwatches',
+    title: 'Apple Watch',
     intro:
       'Apple Watch cannot broadcast heart rate on its own — it needs a small broadcaster app.',
     steps: [
@@ -82,7 +93,9 @@ export const connectHelpSections: HelpSection[] = [
     steps: [
       'Make sure the device is awake and actively broadcasting heart rate (not just powered on).',
       'Disconnect it from any other app or watch, then pull down to refresh this list.',
-      'Still stuck? Get in touch and tell us the device — see Support & feedback on the About screen.',
     ],
+    // Rendered as a tappable support link by ConnectHelpScreen so the fallback
+    // reaches the support contact directly, not via another screen.
+    support: 'Still stuck? Get in touch and tell us which device you have.',
   },
 ];

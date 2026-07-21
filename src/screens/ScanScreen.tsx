@@ -90,25 +90,34 @@ export function ScanScreen({ navigation }: Props) {
                 ? 'No sensors yet. Put your watch in Broadcast Heart Rate mode and keep it close.'
                 : 'Scanning is off. Flip the switch to look for sensors.'}
             </Text>
-            <Pressable
-              onPress={() => navigation.navigate('ConnectHelp')}
-              hitSlop={8}
-              style={({ pressed }) => pressed && styles.pressed}
-            >
-              <Text style={styles.helpLinkProminent}>Can’t find your device?</Text>
-            </Pressable>
+            <HelpLink prominent onPress={() => navigation.navigate('ConnectHelp')} />
           </View>
         }
       />
-      <Pressable
-        onPress={() => navigation.navigate('ConnectHelp')}
-        hitSlop={8}
-        style={({ pressed }) => pressed && styles.pressed}
-      >
-        <Text style={styles.helpLink}>Can’t find your device?</Text>
-      </Pressable>
+      {/* Quieter footer link, but only when the list already shows devices — an
+          empty list surfaces the prominent link above, so a second copy here
+          would just repeat it. */}
+      {devices.length > 0 && (
+        <HelpLink onPress={() => navigation.navigate('ConnectHelp')} />
+      )}
       <VersionFooter />
     </View>
+  );
+}
+
+// One entry point to the connect-help screen, rendered two ways: a prominent
+// nudge in the empty state and a quiet footer link once devices appear.
+function HelpLink({ prominent, onPress }: { prominent?: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      style={({ pressed }) => pressed && styles.pressed}
+    >
+      <Text style={prominent ? styles.helpLinkProminent : styles.helpLink}>
+        Can’t find your device?
+      </Text>
+    </Pressable>
   );
 }
 
