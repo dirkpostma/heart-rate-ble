@@ -1,11 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { RootStackParamList } from '../../App';
 import { ConnectionState } from '../ble/HeartRateMonitor';
 import { PulsingHeart } from '../components/PulsingHeart';
+import { Button, StateDot, Text } from '../ds';
 import { useHeartRate } from '../store/appStore';
-import { colors, spacing } from '../theme';
+import { spacing, useTheme } from '../theme';
 
 // 'disconnected' while this screen is still showing means the monitor
 // reported the drop (user-initiated disconnects navigate away): the
@@ -24,6 +25,7 @@ const STALE_AFTER_MS = 5000;
 type Props = NativeStackScreenProps<RootStackParamList, 'Live'>;
 
 export function LiveScreen({ navigation }: Props) {
+  const theme = useTheme();
   const deviceName = useHeartRate((state) => state.connectedDevice?.name ?? '');
   const connectionState = useHeartRate((state) => state.connectionState);
   const sample = useHeartRate((state) => state.sample);
@@ -64,20 +66,17 @@ export function LiveScreen({ navigation }: Props) {
   const bpm = !stale && sample && sample.bpm > 0 ? sample.bpm : null;
   const acquiring = connectionState === 'connected' && !stale && bpm === null;
 
+  const connected = connectionState === 'connected' && !stale;
+
   return (
-    <View style={styles.container}>
+    // FlatList-free screen, but the DS Screen (ScrollView) would collapse the
+    // header/center/footer three-band flex layout, so the shell stays a themed
+    // root View — bg role, md padding (issue #82: per-screen quirks stay local).
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.header}>
         <View style={styles.stateRow}>
-          <View
-            style={[
-              styles.stateDot,
-              {
-                backgroundColor:
-                  connectionState === 'connected' && !stale ? colors.success : colors.warning,
-              },
-            ]}
-          />
-          <Text style={styles.stateText}>
+          <StateDot color={connected ? 'success' : 'warning'} />
+          <Text variant="caption" color="textSecondary">
             {stale ? 'Connected — no signal' : STATE_LABEL[connectionState]}
           </Text>
         </View>
@@ -85,31 +84,38 @@ export function LiveScreen({ navigation }: Props) {
 
       <View style={styles.center}>
         <PulsingHeart bpm={connectionState === 'connected' ? bpm : null} />
-        <Text style={[styles.bpm, lost && styles.bpmLost]}>{bpm ?? '—'}</Text>
-        <Text style={styles.bpmUnit}>
+        {/* The BPM readout keeps the display variant (104·200·tabular), but
+            its lost-state dim is a local color override (issue #80). */}
+        <Text variant="display" color={lost ? 'textSecondary' : 'textPrimary'}>
+          {bpm ?? '—'}
+        </Text>
+        {/* "beats per minute" — caps with the dramatic ls-2 tracking that the
+            DS caps modifier (fixed 0.5) can't reach, so ls stays local (#80). */}
+        <Text variant="body" caps color="textSecondary" style={styles.bpmUnit}>
           {acquiring ? 'acquiring signal…' : lost ? 'last reading' : 'beats per minute'}
         </Text>
         {lost && (
-          <Text style={styles.contactHint}>
+          <Text color="warning" style={styles.contactHint}>
             Connection lost — the device is no longer reachable
           </Text>
         )}
         {stale && (
-          <Text style={styles.contactHint}>
+          <Text color="warning" style={styles.contactHint}>
             Signal lost — is the watch still broadcasting heart rate?
           </Text>
         )}
         {!stale && !lost && sample?.sensorContact === false && (
-          <Text style={styles.contactHint}>No sensor contact — check the strap or watch fit</Text>
+          <Text color="warning" style={styles.contactHint}>
+            No sensor contact — check the strap or watch fit
+          </Text>
         )}
       </View>
 
-      <Pressable
-        style={({ pressed }) => [styles.disconnect, pressed && styles.disconnectPressed]}
+      <Button
+        variant="outline"
+        label={lost ? 'Back to devices' : 'Disconnect'}
         onPress={onDisconnect}
-      >
-        <Text style={styles.disconnectText}>{lost ? 'Back to devices' : 'Disconnect'}</Text>
-      </Pressable>
+      />
     </View>
   );
 }
@@ -117,7 +123,6 @@ export function LiveScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xl,
   },
@@ -131,53 +136,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  stateDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  stateText: {
-    color: colors.textDim,
-    fontSize: 14,
-  },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
   },
-  bpm: {
-    color: colors.text,
-    fontSize: 104,
-    fontWeight: '200',
-    fontVariant: ['tabular-nums'],
-  },
-  bpmLost: {
-    color: colors.textDim,
-  },
+  // The dramatic uppercase tracking on the BPM unit — beyond the DS caps
+  // modifier's fixed 0.5, so it stays a local override (issue #80).
   bpmUnit: {
-    color: colors.textDim,
-    fontSize: 16,
-    textTransform: 'uppercase',
     letterSpacing: 2,
   },
   contactHint: {
-    color: colors.warning,
     marginTop: spacing.md,
-  },
-  disconnect: {
-    borderColor: colors.accent,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  disconnectPressed: {
-    backgroundColor: colors.accentDim,
-  },
-  disconnectText: {
-    color: colors.accent,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

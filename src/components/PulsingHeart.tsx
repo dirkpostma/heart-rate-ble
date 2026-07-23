@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text } from 'react-native';
-import { colors } from '../theme';
+import { Animated, Easing } from 'react-native';
+import { Text } from '../ds';
+import { useTheme } from '../theme';
 
 interface Props {
   bpm: number | null;
@@ -9,6 +10,7 @@ interface Props {
 
 /** A heart that beats at the live BPM; still while no rate is known. */
 export function PulsingHeart({ bpm, size = 72 }: Props) {
+  const theme = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
   const bpmRef = useRef(bpm);
   bpmRef.current = bpm;
@@ -49,17 +51,22 @@ export function PulsingHeart({ bpm, size = 72 }: Props) {
     };
   }, [scale]);
 
+  // A bespoke display glyph, not a text role — so the size and the accent glow
+  // stay local (like InfoButton's circled "i"); only the fill resolves through
+  // the theme, via the DS Text's `accent` role.
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
-      <Text style={[styles.heart, { fontSize: size }]}>♥</Text>
+      <Text
+        color="accent"
+        style={{
+          fontSize: size,
+          lineHeight: size,
+          textShadowColor: theme.accentMuted,
+          textShadowRadius: 24,
+        }}
+      >
+        ♥
+      </Text>
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  heart: {
-    color: colors.accent,
-    textShadowColor: colors.accentDim,
-    textShadowRadius: 24,
-  },
-});
