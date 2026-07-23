@@ -31,7 +31,7 @@ export function AboutScreen({ navigation }: Props) {
           <View style={styles.divider} />
           <LinkRow label="Support & feedback" onPress={() => Linking.openURL(REPO_URL)} />
         </View>
-        <Pressable onPress={(event) => onCreditTap(event.nativeEvent.timestamp)}>
+        <Pressable onPress={() => onCreditTap()}>
           <Text style={styles.credit}>Made by Dirk Postma</Text>
         </Pressable>
       </ScrollView>
