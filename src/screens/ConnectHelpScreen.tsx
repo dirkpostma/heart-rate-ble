@@ -1,9 +1,10 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Fragment, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import type { RootStackParamList } from '../../App';
 import { connectHelpSections, type HelpSection } from '../content/connectHelp';
-import { colors, spacing } from '../theme';
+import { Card, Icon, Row, Screen, Text } from '../ds';
+import { spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConnectHelp'>;
 
@@ -22,36 +23,37 @@ export function ConnectHelpScreen(_props: Props) {
   );
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.body}
-    >
-      <Text style={styles.lede}>
-        This app only sees sensors that broadcast standard Bluetooth heart rate.
-        Find your device type below and follow the steps to start broadcasting.
-      </Text>
-      {connectHelpSections.map((section, index) => {
-        // Render a group heading only at the first section of each group, so
-        // consecutive Garmin/Polar cards sit under one "Sports watches" head.
-        const prevGroup = connectHelpSections[index - 1]?.group;
-        return (
-          <Fragment key={section.id}>
-            {section.group && section.group !== prevGroup && (
-              <Text style={styles.groupHeading}>{section.group}</Text>
-            )}
-            <SectionCard
-              section={section}
-              open={openId === section.id}
-              onToggle={() =>
-                setOpenId((current) =>
-                  current === section.id ? null : section.id,
-                )
-              }
-            />
-          </Fragment>
-        );
-      })}
-    </ScrollView>
+    <Screen scroll>
+      <View style={styles.body}>
+        <Text color="textSecondary" style={styles.lede}>
+          This app only sees sensors that broadcast standard Bluetooth heart rate.
+          Find your device type below and follow the steps to start broadcasting.
+        </Text>
+        {connectHelpSections.map((section, index) => {
+          // Render a group heading only at the first section of each group, so
+          // consecutive Garmin/Polar cards sit under one "Sports watches" head.
+          const prevGroup = connectHelpSections[index - 1]?.group;
+          return (
+            <Fragment key={section.id}>
+              {section.group && section.group !== prevGroup && (
+                <Text variant="caption" caps weight="bold" style={styles.groupHeading}>
+                  {section.group}
+                </Text>
+              )}
+              <SectionCard
+                section={section}
+                open={openId === section.id}
+                onToggle={() =>
+                  setOpenId((current) =>
+                    current === section.id ? null : section.id,
+                  )
+                }
+              />
+            </Fragment>
+          );
+        })}
+      </View>
+    </Screen>
   );
 }
 
@@ -65,92 +67,64 @@ function SectionCard({
   onToggle: () => void;
 }) {
   return (
-    <View style={styles.card}>
-      <Pressable
-        style={({ pressed }) => [styles.header, pressed && styles.pressed]}
+    <Card>
+      <Row
+        label={section.title}
+        variant="title"
+        trailing={<Icon name={open ? 'chevron-down' : 'chevron-right'} />}
         onPress={onToggle}
-        accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-      >
-        <Text style={styles.title}>{section.title}</Text>
-        <Text style={styles.chevron}>{open ? '⌄' : '›'}</Text>
-      </Pressable>
+      />
       {open && (
         <View style={styles.content}>
-          {section.intro && <Text style={styles.intro}>{section.intro}</Text>}
+          {section.intro && (
+            <Text variant="caption" style={styles.intro}>
+              {section.intro}
+            </Text>
+          )}
           {section.steps.map((step, index) => (
             <View key={index} style={styles.step}>
-              <Text style={styles.stepNumber}>{index + 1}</Text>
-              <Text style={styles.stepText}>{step}</Text>
+              <Text variant="body" weight="bold" color="accent" style={styles.stepNumber}>
+                {index + 1}
+              </Text>
+              <Text variant="body" style={styles.stepText}>
+                {step}
+              </Text>
             </View>
           ))}
-          {section.note && <Text style={styles.note}>{section.note}</Text>}
+          {section.note && (
+            <Text variant="caption" style={styles.note}>
+              {section.note}
+            </Text>
+          )}
           {section.support && (
-            <Pressable
+            <Text
+              variant="body"
+              weight="semibold"
+              color="accent"
               onPress={() => Linking.openURL(SUPPORT_URL)}
-              hitSlop={8}
-              style={({ pressed }) => pressed && styles.pressed}
+              style={styles.supportLink}
             >
-              <Text style={styles.supportLink}>{section.support}</Text>
-            </Pressable>
+              {section.support}
+            </Text>
           )}
         </View>
       )}
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   body: {
-    paddingHorizontal: spacing.md,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
     gap: spacing.sm,
   },
   lede: {
-    color: colors.textDim,
-    fontSize: 14,
-    lineHeight: 20,
     marginBottom: spacing.sm,
   },
   groupHeading: {
-    color: colors.textDim,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
     marginTop: spacing.sm,
-  },
-  card: {
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-  },
-  pressed: {
-    opacity: 0.6,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
-  },
-  chevron: {
-    color: colors.textDim,
-    fontSize: 20,
-    marginLeft: spacing.sm,
   },
   content: {
     paddingHorizontal: spacing.md,
@@ -158,9 +132,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   intro: {
-    color: colors.textDim,
-    fontSize: 13,
-    lineHeight: 19,
     marginBottom: spacing.xs,
   },
   step: {
@@ -168,30 +139,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   stepNumber: {
-    color: colors.accent,
-    fontSize: 14,
-    fontWeight: '700',
     width: 18,
-    lineHeight: 21,
   },
   stepText: {
-    color: colors.text,
-    fontSize: 14,
-    lineHeight: 21,
     flex: 1,
   },
   note: {
-    color: colors.textDim,
-    fontSize: 13,
-    lineHeight: 19,
     fontStyle: 'italic',
     marginTop: spacing.xs,
   },
   supportLink: {
-    color: colors.accent,
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '600',
     marginTop: spacing.xs,
   },
 });
