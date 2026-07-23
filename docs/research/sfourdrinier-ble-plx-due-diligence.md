@@ -256,3 +256,27 @@ Explicit caveats attached to the GO:
 - **Track dotintent #1339/#1278** — if dotintent ships Expo 57 support first, re-run
   this comparison; staying on the 179k-downloads/week package with a live company
   behind it beats a bus-factor-1 fork, all else equal.
+
+## Update 2026-07-23 — fork moved 3.8.1 → 3.8.4; provenance now real
+
+Re-checked the npm registry while consolidating map #58. Two findings change the GO
+conditions above.
+
+- **Provenance is now published (from 3.8.4).** `@sfourdrinier/react-native-ble-plx@3.8.4`
+  (2026-07-20) is the first version carrying npm attestations: SLSA
+  `provenance/v1`, published via GitHub Actions + npm Trusted Publishing (OIDC) with an
+  `npm` GitHub Environment approval gate — no more laptop `npm publish`. Verified against
+  the registry attestations endpoint (3.8.2/3.8.3 still have **none**; 3.8.1 has none).
+  This retires caveat 3's "no provenance" concern **for 3.8.4+**: the per-bump check
+  becomes `npm audit signatures` / attestation verification instead of the
+  `npm pack`-vs-git-tag diff, which is cheaper and stronger. The bus-factor-1 and
+  untagged-history concerns still stand for the pre-3.8.4 line.
+- **3.8.2 fixed an RN 0.86 TurboModule bridge bug** — native BLE methods were dropped
+  when composing module constants, breaking `createClient` and related calls for
+  consumers (exactly this app's hot path). So the earlier §3/§4 note that "every API this
+  app uses exists in 3.8.1" is necessary but not sufficient: **3.8.0/3.8.1 are unsafe to
+  ship; pin 3.8.4.** (3.8.3 was a packaging/tag-alignment fix only.)
+
+**Net effect on the recommendation:** unchanged direction (GO as part of the Expo 57
+migration), but the target pin is now **3.8.4** and the "audit each bump" mitigation is
+downgraded to provenance verification. Reflected in migration ticket #114.
