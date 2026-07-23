@@ -2,6 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DemoSurface } from './src/components/DemoSurface';
 import { InfoButton } from './src/components/InfoButton';
@@ -66,13 +67,26 @@ export default function App() {
   // Dev mode swaps the *entire* root tree between the app and the on-device
   // Storybook UI, rather than nesting Storybook as a stack route. A top-level
   // swap gives Storybook the full screen and its own navigator a reachable
-  // canvas (#101), fixing the below-the-edge story navigator (#100).
+  // canvas (#101).
   const storybookActive = useDevMode((state) => state.storybookActive);
   return (
-    <SafeAreaProvider>
+    // GestureHandlerRootView must be the outermost view: Storybook's on-device
+    // navigator is a @gorhom/bottom-sheet, whose pan/tap gestures are only
+    // routed when the true app root is a GestureHandlerRootView (#100 — the
+    // navigator was unreachable without the gesture stack in the binary).
+    <GestureHandlerRootView style={{ flex: 1 }}>
       {/* style="auto" tracks the OS appearance by itself. */}
       <StatusBar style="auto" />
-      {storybookActive ? <StorybookScreen /> : <AppRoot />}
-    </SafeAreaProvider>
+      {/* Storybook's FullUI renders its OWN SafeAreaProvider, so mount it
+          outside the app's — a nested provider makes Storybook's insets.bottom
+          read 0 and collapses the story-navigator bottom bar (#100). */}
+      {storybookActive ? (
+        <StorybookScreen />
+      ) : (
+        <SafeAreaProvider>
+          <AppRoot />
+        </SafeAreaProvider>
+      )}
+    </GestureHandlerRootView>
   );
 }

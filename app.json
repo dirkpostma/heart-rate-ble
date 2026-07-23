@@ -27,7 +27,9 @@
         "NSSupportsLiveActivities": true
       },
       "entitlements": {
-        "com.apple.security.application-groups": ["group.dev.dirkpostma.heartrateble"]
+        "com.apple.security.application-groups": [
+          "group.dev.dirkpostma.heartrateble"
+        ]
       }
     },
     "android": {
@@ -54,7 +56,9 @@
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": true,
-          "modes": ["central"],
+          "modes": [
+            "central"
+          ],
           "neverForLocation": true,
           "bluetoothAlwaysPermission": "This app uses Bluetooth to connect to heart rate sensors such as your Garmin watch."
         }
@@ -67,7 +71,8 @@
           }
         }
       ],
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

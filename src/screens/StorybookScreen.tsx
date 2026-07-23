@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDevMode } from '../store/devModeStore';
 import { colors } from '../theme';
 
@@ -18,6 +18,18 @@ const StorybookUI = lazy(() => import('../../.rnstorybook'));
 // conflict that left its own story navigator unreachable below the bottom
 // edge (#100).
 export function StorybookScreen() {
+  // A SafeAreaProvider dedicated to this root: the exit control's inset comes
+  // from here, and Storybook's FullUI renders its own provider *inside*
+  // getStorybookUI for its bottom navigator — one provider per region, no
+  // outer app provider nested around Storybook (that collapsed its insets, #100).
+  return (
+    <SafeAreaProvider>
+      <StorybookRoot />
+    </SafeAreaProvider>
+  );
+}
+
+function StorybookRoot() {
   const insets = useSafeAreaInsets();
   const setStorybookActive = useDevMode((state) => state.setStorybookActive);
 
