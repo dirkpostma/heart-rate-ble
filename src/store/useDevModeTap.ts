@@ -12,15 +12,18 @@ import { useDevMode } from './devModeStore';
  * node environment per #11); this hook just holds the mutable state and wires
  * the toggle.
  *
- * Returns a handler for `Pressable.onPress`; call it with the tap timestamp
- * (`event.nativeEvent.timestamp`).
+ * Returns a zero-arg handler for `Pressable.onPress`. It stamps each tap with
+ * `Date.now()` itself rather than reading `event.nativeEvent.timestamp` — on
+ * iOS that native field is unreliable (often undefined), which made every tap
+ * restart the count (`undefined - lastTap` is NaN) so the run never reached
+ * five and the egg silently never fired.
  */
-export function useDevModeTap(): (timestamp: number) => void {
+export function useDevModeTap(): () => void {
   const toggle = useDevMode((state) => state.toggle);
   const tapState = useRef(newTapState());
 
-  return (timestamp: number) => {
-    if (registerTap(tapState.current, timestamp)) {
+  return () => {
+    if (registerTap(tapState.current, Date.now())) {
       toggle();
     }
   };
