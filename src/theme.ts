@@ -154,18 +154,3 @@ export const navThemes: { light: Theme; dark: Theme } = {
     },
   },
 };
-
-// --- Legacy flat exports (DELETED in the DemoSurface PR, #84) ---
-// The 9 remaining consumers still import these; they migrate to roles in their
-// own PRs. Kept unchanged here so PR 1 is a pure addition — nothing breaks yet.
-export const colors = {
-  background: '#0D1117',
-  surface: '#161B22',
-  border: '#30363D',
-  text: '#E6EDF3',
-  textDim: '#8B949E',
-  accent: '#FF2D55',
-  accentDim: '#FF2D5533',
-  success: '#3FB950',
-  warning: '#D29922',
-};

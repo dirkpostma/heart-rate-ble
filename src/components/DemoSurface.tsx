@@ -5,13 +5,14 @@ import {
   PanResponder,
   Pressable,
   StyleSheet,
-  Text,
+  Text as RNText,
   View,
 } from 'react-native';
 import { DemoProfile, PROFILE_LABEL } from '../ble/DemoHeartRateMonitor';
+import { Text } from '../ds';
 import { demoMonitor, useHeartRate } from '../store/appStore';
 import { useDevMode } from '../store/devModeStore';
-import { colors, spacing } from '../theme';
+import { radius, shadowFloating, spacing, useTheme } from '../theme';
 
 const PILL = { width: 92, height: 40 };
 // 288 + 2 * EDGE.side fills a 320 pt screen exactly — the floor for
@@ -115,13 +116,13 @@ function scaleOrigin({ row, col }: Anchor, size: Size): { x: number; y: number }
 // The "you can drag this" affordance shared by the pill and the panel
 // header. View-drawn like the chevron (#24) so it can't drift on a text
 // baseline.
-function DotGrip() {
+function DotGrip({ color }: { color: string }) {
   return (
     <View style={styles.grip}>
       {[0, 1, 2].map((rowIndex) => (
         <View key={rowIndex} style={styles.gripRow}>
-          <View style={styles.gripDot} />
-          <View style={styles.gripDot} />
+          <View style={[styles.gripDot, { backgroundColor: color }]} />
+          <View style={[styles.gripDot, { backgroundColor: color }]} />
         </View>
       ))}
     </View>
@@ -152,6 +153,7 @@ function nearestAnchor(pos: { x: number; y: number }, frame: Size, size: Size): 
  * UI (#21).
  */
 export function DemoSurface() {
+  const theme = useTheme();
   const devices = useSyncExternalStore(
     (onChange) => demoMonitor.onDevicesChanged(onChange),
     () => demoMonitor.getDevices(),
@@ -183,6 +185,10 @@ export function DemoSurface() {
   const [animOrigin, setAnimOrigin] = useState({ x: 0, y: 0 });
   const [closing, setClosing] = useState(false);
   const pendingOpenAnimRef = useRef(false);
+
+  // The one pressed-feedback fill, shared by every Pressable in the panel —
+  // the pre-migration `styles.pressed` rule, now a theme-resolved role.
+  const pressedBg = { backgroundColor: theme.pressed };
 
   const animateOpen = () => {
     Animated.spring(openAnim, { toValue: 1, friction: 7, useNativeDriver: false }).start();
@@ -313,17 +319,24 @@ export function DemoSurface() {
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onLayout}>
       {frame !== null && !open && (
         <Animated.View
-          style={[styles.pill, { transform: pan.getTranslateTransform() }]}
+          style={[
+            styles.pill,
+            { backgroundColor: theme.surface, borderColor: theme.textSecondary },
+            { transform: pan.getTranslateTransform() },
+          ]}
           hitSlop={12}
           {...pillResponder.panHandlers}
         >
-          <DotGrip />
-          <Text style={styles.pillText}>DEMO</Text>
+          <DotGrip color={theme.textSecondary} />
+          <RNText style={[styles.pillText, { color: theme.textSecondary }]}>DEMO</RNText>
           {devices.length > 0 && (
             <View
               style={[
                 styles.pillDot,
-                devices.some((device) => device.id === connectedId) && styles.statusDotConnected,
+                { backgroundColor: theme.textSecondary },
+                devices.some((device) => device.id === connectedId) && {
+                  backgroundColor: theme.success,
+                },
               ]}
             />
           )}
@@ -333,6 +346,11 @@ export function DemoSurface() {
         <Animated.View
           style={[
             styles.panel,
+            {
+              backgroundColor: theme.surfaceElevated,
+              borderColor: theme.border,
+              ...shadowFloating(theme),
+            },
             {
               opacity: openAnim.interpolate({
                 inputRange: [0, 1],
@@ -374,30 +392,37 @@ export function DemoSurface() {
         >
           <View style={styles.header}>
             <View style={styles.dragHandle} {...headerResponder.panHandlers}>
-              <DotGrip />
-              <Text style={styles.title}>Demo devices</Text>
+              <DotGrip color={theme.textSecondary} />
+              <Text variant="caption" weight="bold" color="textPrimary">
+                Demo devices
+              </Text>
             </View>
             <Pressable
-              style={({ pressed }) => [styles.helpBtn, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.helpBtn, pressed && pressedBg]}
               hitSlop={8}
               onPress={() => setHelpOpen((current) => !current)}
             >
-              <Text style={[styles.helpGlyph, helpOpen && styles.helpGlyphOn]}>?</Text>
+              <RNText style={[styles.helpGlyph, { color: helpOpen ? theme.accent : theme.textSecondary }]}>
+                ?
+              </RNText>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.collapseBtn, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.collapseBtn,
+                pressed && pressedBg,
+              ]}
               hitSlop={8}
               onPress={collapse}
             >
-              <View style={styles.chevron} />
+              <View style={[styles.chevron, { borderColor: theme.textSecondary }]} />
             </Pressable>
           </View>
           {helpOpen && (
-            <View style={styles.help}>
+            <View style={[styles.help, { borderColor: theme.border }]}>
               {HELP_ROWS.map(({ glyph, text }) => (
                 <View key={glyph} style={styles.helpRow}>
-                  <Text style={styles.helpGlyphCol}>{glyph}</Text>
-                  <Text style={styles.helpText}>{text}</Text>
+                  <RNText style={[styles.helpGlyphCol, { color: theme.textSecondary }]}>{glyph}</RNText>
+                  <RNText style={[styles.helpText, { color: theme.textSecondary }]}>{text}</RNText>
                 </View>
               ))}
             </View>
@@ -405,50 +430,69 @@ export function DemoSurface() {
           {devices.map((device) => (
             <View key={device.id} style={[styles.row, !device.advertising && styles.rowDim]}>
               <View
-                style={[styles.statusDot, connectedId === device.id && styles.statusDotConnected]}
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: connectedId === device.id ? theme.success : theme.border },
+                ]}
               />
-              <Text style={styles.name} numberOfLines={1}>
+              <Text variant="caption" color="textPrimary" numberOfLines={1} style={styles.name}>
                 {device.name}
               </Text>
-              <View style={styles.actions}>
+              <View style={[styles.actions, { borderLeftColor: theme.border }]}>
                 <Pressable
                   hitSlop={4}
-                  style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.iconBtn, pressed && pressedBg]}
                   onPress={() => demoMonitor.setAdvertising(device.id, !device.advertising)}
                 >
-                  <Text style={[styles.icon, device.advertising && styles.iconOn]}>⏻</Text>
+                  <RNText style={[styles.icon, { color: device.advertising ? theme.accent : theme.textSecondary }]}>
+                    ⏻
+                  </RNText>
                 </Pressable>
                 <Pressable
                   hitSlop={4}
-                  style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.iconBtn, pressed && pressedBg]}
                   disabled={connectedId !== device.id}
                   onPress={() => demoMonitor.dropConnection()}
                 >
-                  <Text style={[styles.icon, connectedId !== device.id && styles.iconDisabled]}>
+                  <RNText
+                    style={[
+                      styles.icon,
+                      { color: theme.textSecondary },
+                      connectedId !== device.id && styles.iconDisabled,
+                    ]}
+                  >
                     ⚡
-                  </Text>
+                  </RNText>
                 </Pressable>
                 <Pressable
                   hitSlop={4}
-                  style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.iconBtn, pressed && pressedBg]}
                   onPress={() => demoMonitor.dismiss(device.id)}
                 >
-                  <Text style={styles.icon}>✕</Text>
+                  <RNText style={[styles.icon, { color: theme.textSecondary }]}>✕</RNText>
                 </Pressable>
               </View>
             </View>
           ))}
           {devices.length === 0 && (
-            <Text style={styles.empty}>No demo devices — add one below ↓</Text>
+            <Text variant="caption" color="textSecondary" style={styles.empty}>
+              No demo devices — add one below ↓
+            </Text>
           )}
           <View style={styles.spawnRow}>
             {(Object.keys(PROFILE_LABEL) as DemoProfile[]).map((profile) => (
               <Pressable
                 key={profile}
-                style={({ pressed }) => [styles.spawnBtn, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.spawnBtn,
+                  { borderColor: theme.border },
+                  pressed && pressedBg,
+                ]}
                 onPress={() => demoMonitor.summon(profile)}
               >
-                <Text style={styles.spawnText}>＋{PROFILE_LABEL[profile]}</Text>
+                <Text variant="caption" weight="semibold" color="accent">
+                  ＋{PROFILE_LABEL[profile]}
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -457,13 +501,19 @@ export function DemoSurface() {
               Storybook UI (#101) — no longer a nav route (#100). */}
           {devMode && (
             <Pressable
-              style={({ pressed }) => [styles.devRow, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.devRow,
+                { borderTopColor: theme.border },
+                pressed && pressedBg,
+              ]}
               onPress={() => {
                 collapse();
                 setStorybookActive(true);
               }}
             >
-              <Text style={styles.devRowText}>Storybook →</Text>
+              <Text variant="caption" weight="semibold" color="textSecondary">
+                Storybook →
+              </Text>
             </Pressable>
           )}
         </Animated.View>
@@ -472,6 +522,9 @@ export function DemoSurface() {
   );
 }
 
+// Layout + metrics only — every color resolves inline from the active theme
+// (issue #83). Spacing snaps onto the ramp: the old stray 6s become xs and the
+// spawn button's 10 becomes sm (issue #84 recorded them as debt, not tokens).
 const styles = StyleSheet.create({
   // A labeled pill instead of the former ring-and-core: the word says
   // what the control is (#27) while its neutral greys keep it
@@ -483,41 +536,32 @@ const styles = StyleSheet.create({
     width: PILL.width,
     height: PILL.height,
     borderRadius: PILL.height / 2,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.textDim,
     opacity: 0.75,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: spacing.xs,
   },
-  pillText: { color: colors.textDim, fontSize: 13, fontWeight: '600', letterSpacing: 1 },
+  pillText: { fontSize: 13, fontWeight: '600', letterSpacing: 1 },
   // Mirrors the panel rows' status dot: green while a demo device is
   // connected, dim grey while devices merely exist, absent when none —
   // a collapsed pill still reports what the mocks are doing.
-  pillDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.textDim },
+  pillDot: { width: 6, height: 6, borderRadius: 3 },
   // View-drawn like the chevron (#24): text glyphs drift on their
   // baseline and render inconsistently across platform fonts.
   grip: { gap: 3 },
   gripRow: { flexDirection: 'row', gap: 3 },
-  gripDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.textDim },
+  gripDot: { width: 4, height: 4, borderRadius: 2 },
   panel: {
     position: 'absolute',
     left: 0,
     top: 0,
     width: PANEL_WIDTH,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: radius.card,
     padding: spacing.sm,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    gap: spacing.xs,
   },
   panelUnmeasured: { opacity: 0 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -532,36 +576,33 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginVertical: -6,
   },
-  title: { color: colors.text, fontSize: 13, fontWeight: '700' },
   // Help opener lives in the title strip like the chevron (#33): a
   // sibling Pressable outside the drag handle, so it can never become a
   // second drag-gesture claimant (#28).
   helpBtn: {
     width: 36,
     height: 36,
-    borderRadius: 8,
+    borderRadius: radius.control,
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: -6,
   },
-  helpGlyph: { color: colors.textDim, fontSize: 16, fontWeight: '700' },
-  helpGlyphOn: { color: colors.accent },
+  helpGlyph: { fontSize: 16, fontWeight: '700' },
   help: {
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: colors.border,
     paddingVertical: spacing.xs,
-    gap: 6,
+    gap: spacing.xs,
   },
   helpRow: { flexDirection: 'row', gap: spacing.sm },
-  helpGlyphCol: { color: colors.textDim, fontSize: 12, width: 16, textAlign: 'center', lineHeight: 15 },
-  helpText: { color: colors.textDim, fontSize: 11, lineHeight: 15, flex: 1 },
+  helpGlyphCol: { fontSize: 12, width: 16, textAlign: 'center', lineHeight: 15 },
+  helpText: { fontSize: 11, lineHeight: 15, flex: 1 },
   // Drawn chevron instead of a text "⌄": no baseline drift against the
   // title, and a real 28 pt tap target (#24).
   collapseBtn: {
     width: 36,
     height: 36,
-    borderRadius: 8,
+    borderRadius: radius.control,
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: -6,
@@ -572,7 +613,6 @@ const styles = StyleSheet.create({
     height: 13,
     borderRightWidth: 2,
     borderBottomWidth: 2,
-    borderColor: colors.textDim,
     transform: [{ rotate: '45deg' }],
     marginTop: -4,
   },
@@ -582,15 +622,13 @@ const styles = StyleSheet.create({
   // connectedness (the live screen's state-dot language), and the action
   // icons sit behind a hairline so tappable and status-only glyphs never
   // share a visual group.
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
-  statusDotConnected: { backgroundColor: colors.success },
-  name: { color: colors.text, fontSize: 13, flex: 1 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  name: { flex: 1 },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
     borderLeftWidth: 1,
-    borderLeftColor: colors.border,
     paddingLeft: spacing.sm,
   },
   // 36 pt boxes + 4 pt hitSlop ≈ Apple's 44 pt target; the glyph stays
@@ -598,33 +636,27 @@ const styles = StyleSheet.create({
   iconBtn: {
     width: 36,
     height: 36,
-    borderRadius: 8,
+    borderRadius: radius.control,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  icon: { color: colors.textDim, fontSize: 17 },
-  iconOn: { color: colors.accent },
+  icon: { fontSize: 17 },
   iconDisabled: { opacity: 0.3 },
-  pressed: { backgroundColor: colors.border },
-  empty: { color: colors.textDim, fontSize: 12, textAlign: 'center', marginVertical: spacing.xs },
-  spawnRow: { flexDirection: 'row', gap: 6, marginTop: 2 },
+  empty: { textAlign: 'center', marginVertical: spacing.xs },
+  spawnRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xxs },
   spawnBtn: {
     flex: 1,
-    borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: radius.control,
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
   },
-  spawnText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
   // Set off from the demo-device controls above by a hairline: it drives
   // the app, not the mocks.
   devRow: {
-    marginTop: 2,
+    marginTop: spacing.xxs,
     paddingTop: spacing.sm,
-    borderTopColor: colors.border,
     borderTopWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
   },
-  devRowText: { color: colors.textDim, fontSize: 13, fontWeight: '600' },
 });
