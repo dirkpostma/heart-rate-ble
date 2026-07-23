@@ -43,7 +43,13 @@ export const ScanDeviceRow: Story = {
 export const ConnectHelpHeader: Story = {
   render: () => (
     <Card>
-      <Row label="Garmin watches" variant="title" trailing={<Icon name="chevron-down" />} onPress={noop} />
+      <Row
+        label="Garmin watches"
+        variant="title"
+        trailing={<Icon name="chevron-down" />}
+        onPress={noop}
+        accessibilityState={{ expanded: true }}
+      />
     </Card>
   ),
 };
