@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { RootStackParamList } from '../../App';
 import { VersionFooter } from '../components/VersionFooter';
+import { useDevModeTap } from '../store/useDevModeTap';
 import { colors, spacing } from '../theme';
 
 const REPO_URL = 'https://github.com/dirkpostma/heart-rate-ble';
@@ -11,6 +12,7 @@ const PRIVACY_URL = `${REPO_URL}/blob/main/PRIVACY.md`;
 type Props = NativeStackScreenProps<RootStackParamList, 'About'>;
 
 export function AboutScreen({ navigation }: Props) {
+  const onCreditTap = useDevModeTap();
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.body}>
@@ -29,7 +31,9 @@ export function AboutScreen({ navigation }: Props) {
           <View style={styles.divider} />
           <LinkRow label="Support & feedback" onPress={() => Linking.openURL(REPO_URL)} />
         </View>
-        <Text style={styles.credit}>Made by Dirk Postma</Text>
+        <Pressable onPress={(event) => onCreditTap(event.nativeEvent.timestamp)}>
+          <Text style={styles.credit}>Made by Dirk Postma</Text>
+        </Pressable>
       </ScrollView>
       <VersionFooter />
     </View>
