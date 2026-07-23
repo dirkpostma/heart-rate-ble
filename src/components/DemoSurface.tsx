@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import { DemoProfile, PROFILE_LABEL } from '../ble/DemoHeartRateMonitor';
-import { navigationRef } from '../navigation';
 import { demoMonitor, useHeartRate } from '../store/appStore';
 import { useDevMode } from '../store/devModeStore';
 import { colors, spacing } from '../theme';
@@ -159,6 +158,7 @@ export function DemoSurface() {
   );
   const connectedId = useHeartRate((state) => state.connectedDevice?.id ?? null);
   const devMode = useDevMode((state) => state.enabled);
+  const setStorybookActive = useDevMode((state) => state.setStorybookActive);
   const [open, setOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [frame, setFrame] = useState<Size | null>(null);
@@ -453,13 +453,14 @@ export function DemoSurface() {
             ))}
           </View>
           {/* Dev-mode affordance (#88): hidden until the About-footer easter
-              egg flips dev mode on. Opens the on-device Storybook route. */}
+              egg flips dev mode on. Swaps the whole root tree to the on-device
+              Storybook UI (#101) — no longer a nav route (#100). */}
           {devMode && (
             <Pressable
               style={({ pressed }) => [styles.devRow, pressed && styles.pressed]}
               onPress={() => {
                 collapse();
-                if (navigationRef.isReady()) navigationRef.navigate('Storybook');
+                setStorybookActive(true);
               }}
             >
               <Text style={styles.devRowText}>Storybook →</Text>

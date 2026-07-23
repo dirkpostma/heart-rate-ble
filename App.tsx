@@ -12,6 +12,7 @@ import { ConnectHelpScreen } from './src/screens/ConnectHelpScreen';
 import { LiveScreen } from './src/screens/LiveScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
 import { StorybookScreen } from './src/screens/StorybookScreen';
+import { useDevMode } from './src/store/devModeStore';
 import { navThemes } from './src/theme';
 
 export type RootStackParamList = {
@@ -19,17 +20,17 @@ export type RootStackParamList = {
   Live: undefined;
   About: undefined;
   ConnectHelp: undefined;
-  Storybook: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export default function App() {
+// The normal app: the navigator plus the UpdateBanner/DemoSurface overlays
+// that float above every screen (#17). Rendered whenever Storybook isn't
+// active.
+function AppRoot() {
   const scheme = useColorScheme();
   return (
-    <SafeAreaProvider>
-      {/* style="auto" tracks the OS appearance by itself. */}
-      <StatusBar style="auto" />
+    <>
       {/* UpdateBanner and DemoSurface stay mounted outside the navigator so
           they persist across screen transitions. */}
       <UpdateBanner />
@@ -54,16 +55,24 @@ export default function App() {
             component={ConnectHelpScreen}
             options={{ title: 'Connect your device' }}
           />
-          {/* Reached only via the demo panel's dev-mode row (#88); the
-              route always exists so navigationRef can target it. */}
-          <Stack.Screen
-            name="Storybook"
-            component={StorybookScreen}
-            options={{ title: 'Storybook' }}
-          />
         </Stack.Navigator>
       </NavigationContainer>
       <DemoSurface />
+    </>
+  );
+}
+
+export default function App() {
+  // Dev mode swaps the *entire* root tree between the app and the on-device
+  // Storybook UI, rather than nesting Storybook as a stack route. A top-level
+  // swap gives Storybook the full screen and its own navigator a reachable
+  // canvas (#101), fixing the below-the-edge story navigator (#100).
+  const storybookActive = useDevMode((state) => state.storybookActive);
+  return (
+    <SafeAreaProvider>
+      {/* style="auto" tracks the OS appearance by itself. */}
+      <StatusBar style="auto" />
+      {storybookActive ? <StorybookScreen /> : <AppRoot />}
     </SafeAreaProvider>
   );
 }
