@@ -9,7 +9,9 @@ import {
   View,
 } from 'react-native';
 import { DemoProfile, PROFILE_LABEL } from '../ble/DemoHeartRateMonitor';
+import { navigationRef } from '../navigation';
 import { demoMonitor, useHeartRate } from '../store/appStore';
+import { useDevMode } from '../store/devModeStore';
 import { colors, spacing } from '../theme';
 
 const PILL = { width: 92, height: 40 };
@@ -156,6 +158,7 @@ export function DemoSurface() {
     () => demoMonitor.getDevices(),
   );
   const connectedId = useHeartRate((state) => state.connectedDevice?.id ?? null);
+  const devMode = useDevMode((state) => state.enabled);
   const [open, setOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [frame, setFrame] = useState<Size | null>(null);
@@ -449,6 +452,19 @@ export function DemoSurface() {
               </Pressable>
             ))}
           </View>
+          {/* Dev-mode affordance (#88): hidden until the About-footer easter
+              egg flips dev mode on. Opens the on-device Storybook route. */}
+          {devMode && (
+            <Pressable
+              style={({ pressed }) => [styles.devRow, pressed && styles.pressed]}
+              onPress={() => {
+                collapse();
+                if (navigationRef.isReady()) navigationRef.navigate('Storybook');
+              }}
+            >
+              <Text style={styles.devRowText}>Storybook →</Text>
+            </Pressable>
+          )}
         </Animated.View>
       )}
     </View>
@@ -600,4 +616,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   spawnText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  // Set off from the demo-device controls above by a hairline: it drives
+  // the app, not the mocks.
+  devRow: {
+    marginTop: 2,
+    paddingTop: spacing.sm,
+    borderTopColor: colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+  },
+  devRowText: { color: colors.textDim, fontSize: 13, fontWeight: '600' },
 });

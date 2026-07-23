@@ -6,10 +6,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DemoSurface } from './src/components/DemoSurface';
 import { InfoButton } from './src/components/InfoButton';
 import { UpdateBanner } from './src/components/UpdateBanner';
+import { navigationRef } from './src/navigation';
 import { AboutScreen } from './src/screens/AboutScreen';
 import { ConnectHelpScreen } from './src/screens/ConnectHelpScreen';
 import { LiveScreen } from './src/screens/LiveScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
+import { StorybookScreen } from './src/screens/StorybookScreen';
 import { navThemes } from './src/theme';
 
 export type RootStackParamList = {
@@ -17,6 +19,7 @@ export type RootStackParamList = {
   Live: undefined;
   About: undefined;
   ConnectHelp: undefined;
+  Storybook: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -30,7 +33,7 @@ export default function App() {
       {/* UpdateBanner and DemoSurface stay mounted outside the navigator so
           they persist across screen transitions. */}
       <UpdateBanner />
-      <NavigationContainer theme={navThemes[scheme ?? 'dark']}>
+      <NavigationContainer ref={navigationRef} theme={navThemes[scheme ?? 'dark']}>
         {/* Header + content chrome derive entirely from the nav theme; no
             per-screen style overrides. */}
         <Stack.Navigator initialRouteName="Scan">
@@ -50,6 +53,13 @@ export default function App() {
             name="ConnectHelp"
             component={ConnectHelpScreen}
             options={{ title: 'Connect your device' }}
+          />
+          {/* Reached only via the demo panel's dev-mode row (#88); the
+              route always exists so navigationRef can target it. */}
+          <Stack.Screen
+            name="Storybook"
+            component={StorybookScreen}
+            options={{ title: 'Storybook' }}
           />
         </Stack.Navigator>
       </NavigationContainer>
