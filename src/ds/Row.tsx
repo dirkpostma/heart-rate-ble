@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, type AccessibilityState } from 'react-native';
 import { spacing } from '../theme';
 import { Text } from './Text';
 
@@ -13,6 +13,12 @@ export type RowProps = {
   trailing?: ReactNode;
   onPress?: () => void;
   disabled?: boolean;
+  /**
+   * Disclosure state for collapsible rows (ConnectHelp section headers): a
+   * pressable Row already reads as a button, so this only carries
+   * `{ expanded }`. Ignored on non-pressable rows.
+   */
+  accessibilityState?: AccessibilityState;
 };
 
 // One layout for all three row shapes (About LinkRow, ConnectHelp card header,
@@ -20,7 +26,15 @@ export type RowProps = {
 // `title` for Scan/ConnectHelp) with the optional `meta` caption beneath.
 // `trailing` is a free ReactNode slot — no dedicated chevron prop. Baked layout:
 // horizontal, centered, md padding. Pressable rows dim to 0.6 (issue #82).
-export function Row({ label, variant = 'body', meta, trailing, onPress, disabled = false }: RowProps) {
+export function Row({
+  label,
+  variant = 'body',
+  meta,
+  trailing,
+  onPress,
+  disabled = false,
+  accessibilityState,
+}: RowProps) {
   const body = (
     <>
       <View style={styles.text}>
@@ -43,6 +57,8 @@ export function Row({ label, variant = 'body', meta, trailing, onPress, disabled
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={accessibilityState}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
       {body}
