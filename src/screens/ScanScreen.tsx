@@ -1,22 +1,16 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Switch, View } from 'react-native';
 import type { RootStackParamList } from '../../App';
 import { VersionFooter } from '../components/VersionFooter';
 import type { DiscoveredDevice } from '../ble/HeartRateMonitor';
+import { Button, Card, Row, Text } from '../ds';
 import { useHeartRate } from '../store/appStore';
-import { colors, spacing } from '../theme';
+import { spacing, useTheme } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Scan'>;
 
 export function ScanScreen({ navigation }: Props) {
+  const theme = useTheme();
   const devices = useHeartRate((state) => state.devices);
   const scanning = useHeartRate((state) => state.scanning);
   const scanEnabled = useHeartRate((state) => state.scanEnabled);
@@ -35,9 +29,12 @@ export function ScanScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
+    // FlatList + RefreshControl can't live inside the DS Screen (ScrollView),
+    // so the shell stays a themed root View — bg role, md horizontal padding
+    // (issue #82: per-screen quirks stay local, never Screen props).
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.statusRow}>
-        <Text style={styles.statusText}>
+        <Text color="textSecondary">
           {scanEnabled
             ? scanning
               ? 'Scanning for heart-rate sensors'
@@ -47,45 +44,47 @@ export function ScanScreen({ navigation }: Props) {
         <Switch
           value={scanEnabled}
           onValueChange={onToggleScan}
-          trackColor={{ true: colors.accent, false: colors.border }}
-          thumbColor="#FFFFFF"
+          trackColor={{ true: theme.accent, false: theme.border }}
+          thumbColor={theme.onAccent}
         />
       </View>
-      {error && <Text style={styles.error}>{error}</Text>}
-      {connectError && <Text style={styles.error}>{connectError}</Text>}
+      {error && <Text color="danger" style={styles.error}>{error}</Text>}
+      {connectError && <Text color="danger" style={styles.error}>{connectError}</Text>}
       <FlatList
         data={devices}
         keyExtractor={(d) => d.id}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={onRescan} tintColor={colors.accent} />
+          <RefreshControl refreshing={false} onRefresh={onRescan} tintColor={theme.accent} />
         }
-        renderItem={({ item }) => (
-          <Pressable
-            style={({ pressed }) => [
-              styles.row,
-              item.stale && styles.rowStale,
-              pressed && styles.rowPressed,
-            ]}
-            onPress={() => onSelect(item)}
-            disabled={connectingId !== null || item.stale}
-          >
-            <View style={styles.rowText}>
-              <Text style={styles.deviceName}>{item.name}</Text>
-              <Text style={styles.deviceMeta}>
-                {item.stale
-                  ? scanEnabled
-                    ? 'Not broadcasting — reappears automatically'
-                    : 'Not broadcasting — scanning is off'
-                  : `RSSI ${item.rssi ?? '—'} dBm`}
-              </Text>
-            </View>
-            {connectingId === item.id && <Text style={styles.connecting}>connecting…</Text>}
-          </Pressable>
-        )}
+        renderItem={({ item }) => {
+          const disabled = connectingId !== null || item.stale;
+          return (
+            <Card style={item.stale && styles.staleCard}>
+              <Row
+                label={item.name}
+                variant="title"
+                meta={
+                  item.stale
+                    ? scanEnabled
+                      ? 'Not broadcasting — reappears automatically'
+                      : 'Not broadcasting — scanning is off'
+                    : `RSSI ${item.rssi ?? '—'} dBm`
+                }
+                trailing={
+                  connectingId === item.id ? (
+                    <Text variant="caption" color="accent">connecting…</Text>
+                  ) : undefined
+                }
+                onPress={item.stale ? undefined : () => onSelect(item)}
+                disabled={disabled}
+              />
+            </Card>
+          );
+        }}
         ListEmptyComponent={
           <View style={styles.emptyBlock}>
-            <Text style={styles.empty}>
+            <Text color="textSecondary" style={styles.empty}>
               {scanEnabled
                 ? 'No sensors yet. Put your watch in Broadcast Heart Rate mode and keep it close.'
                 : 'Scanning is off. Flip the switch to look for sensors.'}
@@ -96,30 +95,21 @@ export function ScanScreen({ navigation }: Props) {
       {/* One always-present, prominent entry point to the connect-help
           instructions — visible whether or not a device has shown up, so the
           help page is never stranded. */}
-      <HelpLink onPress={() => navigation.navigate('ConnectHelp')} />
+      <View style={styles.helpLink}>
+        <Button
+          variant="link"
+          label="Can’t find your device?"
+          onPress={() => navigation.navigate('ConnectHelp')}
+        />
+      </View>
       <VersionFooter />
     </View>
-  );
-}
-
-// The always-visible "Can't find your device?" entry point to the connect-help
-// instruction screen.
-function HelpLink({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={8}
-      style={({ pressed }) => pressed && styles.pressed}
-    >
-      <Text style={styles.helpLinkProminent}>Can’t find your device?</Text>
-    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
   },
   statusRow: {
@@ -129,50 +119,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginBottom: spacing.md,
   },
-  statusText: {
-    color: colors.textDim,
-    fontSize: 14,
-  },
   error: {
-    color: colors.warning,
     marginBottom: spacing.sm,
   },
   list: {
     gap: spacing.sm,
     paddingBottom: spacing.xl,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  rowStale: {
+  staleCard: {
     opacity: 0.45,
-  },
-  rowPressed: {
-    backgroundColor: colors.border,
-  },
-  rowText: {
-    flex: 1,
-  },
-  deviceName: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  deviceMeta: {
-    color: colors.textDim,
-    fontSize: 13,
-    marginTop: 2,
-  },
-  connecting: {
-    color: colors.accent,
-    fontSize: 13,
   },
   emptyBlock: {
     marginTop: spacing.xl,
@@ -180,20 +135,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   empty: {
-    color: colors.textDim,
     textAlign: 'center',
     lineHeight: 20,
   },
-  // Always-present entry point to the connect-help screen, prominent so it's
-  // easy to spot whether or not devices are listed.
-  helpLinkProminent: {
-    color: colors.accent,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    paddingVertical: spacing.sm,
-  },
-  pressed: {
-    opacity: 0.6,
+  helpLink: {
+    alignItems: 'center',
   },
 });
