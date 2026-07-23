@@ -185,6 +185,30 @@ environment** with zero react-native imports, so the RN 0.86 bump never reaches 
 test runner; jest 29 + ts-jest 29 keep working as-is. (`jest-expo ~57.0.1` exists if a
 RN-preset ever becomes necessary.)
 
+## 5a. Old-architecture workarounds to REMOVE on the New-Arch flip
+
+The on-device Storybook navigator fix (#100, landed 2026-07-23) added several
+native deps for Storybook's `@gorhom/bottom-sheet` UI. Because the app is still
+**old architecture** (`newArchEnabled: false`), three of them are **pinned below
+their SDK-recommended versions specifically to compile old-arch**. SDK 57 forces
+New Architecture, which is exactly the condition that lets these pins be lifted —
+so this section is the checklist to revisit *during* the upgrade. (Full context:
+`docs/research/storybook-rn-ondevice-navigator.md`, and the
+[[storybook-ondevice-native-deps]] note.)
+
+| Workaround (today) | Why it exists | Action on New Arch / SDK 57 |
+|---|---|---|
+| `react-native-reanimated` pinned to `~3.19` | Reanimated 4 **requires** New Arch; app is old-arch. SDK 54's *recommended* is RA4, so we also carry `expo.install.exclude: ["react-native-reanimated"]` in `package.json`. | **Un-pin to Reanimated 4** (SDK 57's default). `npx expo install --fix` will want it. **Remove the `expo.install.exclude` entry.** RA4 splits out `react-native-worklets` and moves the Babel plugin to `react-native-worklets/plugin` — but `babel-preset-expo` auto-wires whichever is installed, so still **do not add a `babel.config.js`** (see next row). |
+| `@react-native-community/slider` pinned to `4.5.7` | Slider 5.x's codegen references a Fabric header (`RNCSliderComponentDescriptor.h`) that only exists under New Arch, breaking the **old-arch** Xcode build. | **Un-pin to slider 5.x** — under New Arch the Fabric component is exactly what's wanted; the 4.5.7 pin becomes unnecessary and should be dropped so we're on the supported line. |
+| **No `babel.config.js`** (deliberately absent) | A hand-rolled config that re-declared `babel-preset-expo` double-applied the JSX `__self` transform → `Duplicate __self prop` compile error → `RCTFatal` at launch (#106). `babel-preset-expo` already auto-adds the reanimated/worklets plugin. | **Keep it absent.** This is not an old-arch workaround — it's a permanent "let the preset own the plugin" rule. Do **not** reintroduce a custom babel config on the upgrade, even though RA4 changes the plugin path. |
+
+Not-a-workaround, just note: `@react-native-community/datetimepicker` and
+`react-native-svg` were added at their SDK-54 versions and gate Fabric correctly
+on both arches — `--expo install --fix` will bump them normally, no special
+handling. The root `GestureHandlerRootView` wrap in `App.tsx` and the
+un-nested `SafeAreaProvider` around Storybook are architecture-independent and
+**stay**.
+
 ## 6. Recommended upgrade path (for when the blocker clears)
 
 - Expo's standing guidance: *"We recommend upgrading SDK versions incrementally, one at
@@ -196,6 +220,8 @@ RN-preset ever becomes necessary.)
   stepwise stops would each re-hit the same ble-plx wall without isolating anything.
 - Sequence: `npx expo install expo@^57.0.0 --fix` (bumps per the §5 table, plus
   `@types/react` to ~19.2.x) → resolve ble-plx (fixed release or fork or patches) →
+  **lift the §5a old-arch Storybook pins** (un-pin reanimated → 4 + drop its
+  `expo.install.exclude`; un-pin slider → 5; keep NO `babel.config.js`) →
   delete `withFmtXcode26Fix` plugin → `npx expo-doctor` → `npx expo prebuild --clean`
   (pure CNG: regenerates `ios/` from scratch — New-Arch pods, iOS 16.4 deployment
   target, and it is the step where a broken ble-plx plugin fails) → rebuild the dev
