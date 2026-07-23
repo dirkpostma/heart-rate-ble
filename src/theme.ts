@@ -90,6 +90,32 @@ export const radius = {
   full: 999,
 };
 
+// Typography — five flat variants, system font (SF Pro on iOS). Colorless
+// metrics only: the `Text` primitive resolves a default color role per variant
+// (see COLOR_ROLE_BY_VARIANT below), overridable per site. See issue #80 for
+// the ramp audit; every text in the app lands on 104·17·16·15·13.
+export type TextVariant = 'display' | 'title' | 'label' | 'body' | 'caption';
+export type FontWeight = 'regular' | 'semibold' | 'bold';
+
+export const typography: Record<
+  TextVariant,
+  { fontSize: number; fontWeight: '200' | '400' | '600'; lineHeight: number; tabular?: boolean }
+> = {
+  display: { fontSize: 104, fontWeight: '200', lineHeight: 108, tabular: true },
+  title: { fontSize: 17, fontWeight: '600', lineHeight: 22 },
+  label: { fontSize: 16, fontWeight: '600', lineHeight: 21 },
+  body: { fontSize: 15, fontWeight: '400', lineHeight: 22 },
+  caption: { fontSize: 13, fontWeight: '400', lineHeight: 18 },
+};
+
+// The `weight` modifier maps to concrete RN fontWeight strings, overriding the
+// variant's default weight when supplied.
+export const fontWeights: Record<FontWeight, '400' | '600' | '700'> = {
+  regular: '400',
+  semibold: '600',
+  bold: '700',
+};
+
 // The app's single elevation token: the one floating (shadowed) surface. Shadow
 // color comes from the active theme's role; opacity is the one metric that
 // legitimately differs by theme (dark reads heavy, light needs a subtle lift).
