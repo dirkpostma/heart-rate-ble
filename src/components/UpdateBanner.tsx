@@ -1,7 +1,8 @@
 import * as Updates from 'expo-updates';
 import { useEffect } from 'react';
-import { AppState, Pressable, StyleSheet, Text } from 'react-native';
-import { colors, spacing } from '../theme';
+import { AppState, StyleSheet, View } from 'react-native';
+import { Button } from '../ds';
+import { spacing } from '../theme';
 
 /**
  * Surfaces a pending OTA update as a tappable banner. expo-updates
@@ -31,25 +32,24 @@ export function UpdateBanner() {
 
   if (__DEV__ || !isUpdatePending) return null;
 
+  // Three lines over Button primary (issue #82): the filled accent block now
+  // dips on press — the pressed feedback the hand-rolled Pressable never had.
+  // Only the outer margins stay local, so the banner floats clear of the
+  // navigator edge.
   return (
-    <Pressable style={styles.banner} onPress={() => Updates.reloadAsync()}>
-      <Text style={styles.text}>Update available — tap to restart</Text>
-    </Pressable>
+    <View style={styles.banner}>
+      <Button
+        variant="primary"
+        label="Update available — tap to restart"
+        onPress={() => Updates.reloadAsync()}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   banner: {
-    backgroundColor: colors.accent,
-    borderRadius: 12,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  text: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
