@@ -1,7 +1,8 @@
 import * as Application from 'expo-application';
 import * as Updates from 'expo-updates';
-import { StyleSheet, Text } from 'react-native';
-import { colors, spacing } from '../theme';
+import { StyleSheet } from 'react-native';
+import { Text } from '../ds';
+import { spacing } from '../theme';
 
 function otaLabel(): string {
   if (__DEV__) return 'dev';
@@ -23,7 +24,7 @@ export function VersionFooter() {
   const build = Application.nativeBuildVersion ?? '?';
 
   return (
-    <Text style={styles.footer}>
+    <Text variant="caption" style={styles.footer}>
       v{version} ({build}) · {otaLabel()}
     </Text>
   );
@@ -31,8 +32,6 @@ export function VersionFooter() {
 
 const styles = StyleSheet.create({
   footer: {
-    color: colors.textDim,
-    fontSize: 12,
     textAlign: 'center',
     paddingVertical: spacing.sm,
     opacity: 0.7,

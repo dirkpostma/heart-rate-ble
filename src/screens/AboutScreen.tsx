@@ -1,9 +1,10 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import type { RootStackParamList } from '../../App';
 import { VersionFooter } from '../components/VersionFooter';
+import { Card, Divider, Icon, Row, Screen, Text } from '../ds';
 import { useDevModeTap } from '../store/useDevModeTap';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
 
 const REPO_URL = 'https://github.com/dirkpostma/heart-rate-ble';
 // Same URL the App Store listing declares as the privacy policy.
@@ -14,90 +15,44 @@ type Props = NativeStackScreenProps<RootStackParamList, 'About'>;
 export function AboutScreen({ navigation }: Props) {
   const onCreditTap = useDevModeTap();
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.body}>
-        <Text style={styles.paragraph}>
+    <Screen scroll footer={<VersionFooter />}>
+      <View style={styles.body}>
+        <Text>
           Heart Rate BLE shows the live heart rate from your Bluetooth chest strap or sports watch —
           on screen, in a Lock Screen Live Activity, and in a home-screen widget. No account, no
           tracking: your heart rate never leaves your device, and the app collects no data at all.
         </Text>
-        <View style={styles.links}>
-          <LinkRow
+        <Card>
+          <Row
             label="How to connect my device"
+            trailing={<Icon name="chevron-right" />}
             onPress={() => navigation.navigate('ConnectHelp')}
           />
-          <View style={styles.divider} />
-          <LinkRow label="Privacy policy" onPress={() => Linking.openURL(PRIVACY_URL)} />
-          <View style={styles.divider} />
-          <LinkRow label="Support & feedback" onPress={() => Linking.openURL(REPO_URL)} />
-        </View>
+          <Divider />
+          <Row
+            label="Privacy policy"
+            trailing={<Icon name="chevron-right" />}
+            onPress={() => Linking.openURL(PRIVACY_URL)}
+          />
+          <Divider />
+          <Row
+            label="Support & feedback"
+            trailing={<Icon name="chevron-right" />}
+            onPress={() => Linking.openURL(REPO_URL)}
+          />
+        </Card>
         <Pressable onPress={() => onCreditTap()}>
-          <Text style={styles.credit}>Made by Dirk Postma</Text>
+          <Text variant="caption">Made by Dirk Postma</Text>
         </Pressable>
-      </ScrollView>
-      <VersionFooter />
-    </View>
-  );
-}
-
-function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
-      onPress={onPress}
-    >
-      <Text style={styles.linkLabel}>{label}</Text>
-      <Text style={styles.linkChevron}>›</Text>
-    </Pressable>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.md,
-  },
   body: {
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
     gap: spacing.lg,
-  },
-  paragraph: {
-    color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  links: {
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.md,
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-  },
-  linkLabel: {
-    color: colors.text,
-    fontSize: 15,
-  },
-  linkChevron: {
-    color: colors.textDim,
-    fontSize: 20,
-  },
-  pressed: {
-    opacity: 0.6,
-  },
-  credit: {
-    color: colors.textDim,
-    fontSize: 13,
   },
 });
