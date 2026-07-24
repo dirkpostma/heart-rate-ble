@@ -234,18 +234,43 @@ is the reference every migration PR compares against.
 | 12 | Drop exceeds retries → "Connection lost" | PASS | After ~30 s off (past all 5 retries): "Connection lost — the device is no longer reachable", BPM dimmed to last reading, button becomes "Back to devices". No crash/spinner. |
 | 13 | Out of range → degrades gracefully | PASS | Verified via watch-BT-off (same as step 11): goes "Reconnecting…", no crash/hang/frozen-live BPM. |
 | 14 | Return in range → resumes | PASS | Watch BT back on within the retry window → auto-returns to "Connected" + live BPM, no user action. |
-| 15 | Background stays connected | | |
-| 16 | Foreground resumes cleanly | | |
-| 17 | Background drop → pending reconnect | | |
-| 18 | Live Activity starts on first reading | | |
-| 19 | Live Activity updates coalesced (~2.5 s / 15 s) | | |
-| 20 | Live Activity self-labels stale (~20 s) | | |
-| 21 | Live Activity recovers from stale | | |
-| 22 | Live Activity ends on disconnect | | |
-| 23 | Live Activity drop grace → auto-end (~5 min) | | |
-| 24 | State restoration wake (#47) | | |
+| 15 | Background stays connected | PASS | App backgrounded 1–2 min; Live Activity present and still updating BPM — connection stayed alive. |
+| 16 | Foreground resumes cleanly | PASS | Reopening shows the live session with current BPM — no reconnect flash, no "Connecting…"/"Connection lost". |
+| 17 | Background drop → pending reconnect | **FAIL** | Backgrounded/locked, toggled watch **Bluetooth off** then on (tried ~3 s and ~60 s off) — a real *link drop*, distinct from stopping broadcast (step 20). On reopening the app the state was **"Connection lost"** — no auto-resume. The background pending-connect path (`handleDrop` `AppState !== 'active'` branch) did not recover the session. **Baseline regression reference** — the migration must at least match, ideally fix, this. |
+| 18 | Live Activity starts on first reading | PASS | Confirmed during step 15 — Live Activity appeared on connect showing the 970 name + real BPM (no placeholder observed). |
+| 19 | Live Activity updates coalesced (~2.5 s / 15 s) | PASS | On Lock Screen, BPM updates at a calm readable cadence (~2–3 s) — not per-beat flicker, not frozen. |
+| 20 | Live Activity self-labels stale (~20 s) | PARTIAL | Does self-label stale, but **much slower than the ~20 s** the code implies (`STALE_AFTER_MS = 20000`). At ~20 s it still showed a solid "58 bpm" + red heart (looked live). By ~1 min it flipped correctly: heart greyed/dimmed, label "66 bpm · last reading 1 min, 4 secs ago". So the stale mechanism works but the timing is off — investigate whether iOS coalesces the `staleDate` update while suspended, or the update carrying the new staleDate isn't sent. **Baseline regression reference.** |
+| 21 | Live Activity recovers from stale | PASS | Resuming broadcast returns the Live Activity to live — solid red heart, fresh BPM updating. |
+| 22 | Live Activity ends on disconnect | PASS | Tapping Disconnect ends the Live Activity promptly — gone from the Lock Screen. |
+| 23 | Live Activity drop grace → auto-end (~5 min) | PASS (late) | Stale Live Activity auto-cleared on its own after a confirmed drop — but at **~7 min**, not the ~5 min target (`DROP_GRACE_MS = 5 min`). Consistent with step 20's late staleness: while suspended, JS timers freeze and the grace check only runs on the next iOS wake, so the end fires late. Functionally correct (it does clear, no manual action), timing is loose. |
+| 24 | State restoration wake (#47) | SKIPPED | Not run — a genuine iOS system-kill can't be forced on demand. Related signal: background *link-drop* recovery is already known-broken (step 17 FAIL), so restoration-based recovery is unverified and suspect on this baseline. To be characterised during the migration smoke test. |
 
-**Overall baseline verdict:** _(green / issues found — summarise)_
+**Overall baseline verdict:** _Mostly green — the core BLE session (scan,
+connect, live HR, disconnect, foreground reconnect, out-of-range, backgrounding,
+Live Activity start/update/end) all work._ Run on 2026-07-24, TestFlight 1.1.0
+(12), iPhone 16, Forerunner 970. **19 PASS, 1 PARTIAL, 2 FAIL, 1 SKIPPED.**
+
+Issues found (the regression reference the migration must at least match, ideally
+improve):
+
+- **Step 17 — FAIL (most significant):** background *link drop* (watch Bluetooth
+  off) does **not** auto-recover — reopening shows "Connection lost". The
+  background pending-connect path isn't bringing the session back.
+- **Step 20 — PARTIAL:** Live Activity self-labels stale, but at ~1 min, not the
+  ~20 s the code targets. Timing likely lost to suspended-app timer freeze.
+- **Step 23 — PASS but late (~7 min vs ~5 min target):** same suspended-timer
+  cause; grace-end fires on the next iOS wake, not on schedule.
+- **Step 1 — FAIL (edge case, agreed not to fix now):** scan doesn't auto-resume
+  after Bluetooth is toggled back on; manual pause/resume works around it.
+- **Step 24 — SKIPPED:** iOS system-kill restoration can't be forced on demand;
+  to be characterised during the migration run.
+
+Behavioural notes for the migration (not regressions): step 5 connect flow
+differs pre-navigation build; step 9 scan list briefly flashes empty on return.
+
+The timing-related findings (17 / 20 / 23) cluster on the **suspended-app
+background path** — the app's most fragile feature, exactly what #47 flagged.
+The migration should watch these closely and, where possible, tighten them.
 
 **Battery note (optional soak):** a 1–2 h connected session drains roughly
 low-single-digit %/h per the research estimate; record an Instruments Energy Log
