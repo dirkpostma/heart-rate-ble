@@ -220,7 +220,7 @@ is the reference every migration PR compares against.
 
 | # | Step | Result (PASS / FAIL / N/A) | Notes / observed values |
 |---|---|---|---|
-| 1 | Radio gating (BT off→on) | FAIL | Scan does **not** auto-resume when BT is toggled back on — screen stays "Bluetooth is turned off". Workaround: manually pause + resume scan. Known edge case, not fixing now. |
+| 1 | Radio gating (BT off→on) | FAIL | Scan does **not** auto-resume when BT is toggled back on — screen stays "Bluetooth is turned off". Workaround: manually pause + resume scan. Known edge case — tracked in #118. |
 | 2 | Discovery (name + RSSI) | PASS | Forerunner 970 appears within a few seconds with name + live RSSI; only the HR sensor listed. |
 | 3 | RSSI refreshes | PASS | RSSI value updates as the watch moves closer/farther. |
 | 4 | Stale ~3 s → revive | PASS | Row greys out after ~3 s of silence; revives on next advertisement when broadcast resumes. |
@@ -236,7 +236,7 @@ is the reference every migration PR compares against.
 | 14 | Return in range → resumes | PASS | Watch BT back on within the retry window → auto-returns to "Connected" + live BPM, no user action. |
 | 15 | Background stays connected | PASS | App backgrounded 1–2 min; Live Activity present and still updating BPM — connection stayed alive. |
 | 16 | Foreground resumes cleanly | PASS | Reopening shows the live session with current BPM — no reconnect flash, no "Connecting…"/"Connection lost". |
-| 17 | Background drop → pending reconnect | **FAIL** | Backgrounded/locked, toggled watch **Bluetooth off** then on (tried ~3 s and ~60 s off) — a real *link drop*, distinct from stopping broadcast (step 20). On reopening the app the state was **"Connection lost"** — no auto-resume. The background pending-connect path (`handleDrop` `AppState !== 'active'` branch) did not recover the session. **Baseline regression reference** — the migration must at least match, ideally fix, this. |
+| 17 | Background drop → pending reconnect | **FAIL** | Backgrounded/locked, toggled watch **Bluetooth off** then on (tried ~3 s and ~60 s off) — a real *link drop*, distinct from stopping broadcast (step 20). On reopening the app the state was **"Connection lost"** — no auto-resume. The background pending-connect path (`handleDrop` `AppState !== 'active'` branch) did not recover the session. **Baseline regression reference** — the migration must at least match, ideally fix, this. Tracked in #117. |
 | 18 | Live Activity starts on first reading | PASS | Confirmed during step 15 — Live Activity appeared on connect showing the 970 name + real BPM (no placeholder observed). |
 | 19 | Live Activity updates coalesced (~2.5 s / 15 s) | PASS | On Lock Screen, BPM updates at a calm readable cadence (~2–3 s) — not per-beat flicker, not frozen. |
 | 20 | Live Activity self-labels stale (~20 s) | PARTIAL | Does self-label stale, but **much slower than the ~20 s** the code implies (`STALE_AFTER_MS = 20000`). At ~20 s it still showed a solid "58 bpm" + red heart (looked live). By ~1 min it flipped correctly: heart greyed/dimmed, label "66 bpm · last reading 1 min, 4 secs ago". So the stale mechanism works but the timing is off — investigate whether iOS coalesces the `staleDate` update while suspended, or the update carrying the new staleDate isn't sent. **Baseline regression reference.** |
@@ -255,13 +255,15 @@ improve):
 
 - **Step 17 — FAIL (most significant):** background *link drop* (watch Bluetooth
   off) does **not** auto-recover — reopening shows "Connection lost". The
-  background pending-connect path isn't bringing the session back.
+  background pending-connect path isn't bringing the session back. Tracked in
+  #117.
 - **Step 20 — PARTIAL:** Live Activity self-labels stale, but at ~1 min, not the
   ~20 s the code targets. Timing likely lost to suspended-app timer freeze.
 - **Step 23 — PASS but late (~7 min vs ~5 min target):** same suspended-timer
   cause; grace-end fires on the next iOS wake, not on schedule.
 - **Step 1 — FAIL (edge case, agreed not to fix now):** scan doesn't auto-resume
   after Bluetooth is toggled back on; manual pause/resume works around it.
+  Tracked in #118.
 - **Step 24 — SKIPPED:** iOS system-kill restoration can't be forced on demand;
   to be characterised during the migration run.
 
