@@ -1,6 +1,8 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -69,6 +71,12 @@ export default function App() {
   // swap gives Storybook the full screen and its own navigator a reachable
   // canvas (#101).
   const storybookActive = useDevMode((state) => state.storybookActive);
+  // SDK 57's expo-splash-screen auto-hide can miss on app relaunch (splash
+  // stays up while the app runs underneath). Explicit hide is idempotent and
+  // safe alongside auto-hide on first launch.
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
   return (
     // GestureHandlerRootView must be the outermost view: Storybook's on-device
     // navigator is a @gorhom/bottom-sheet, whose pan/tap gestures are only
