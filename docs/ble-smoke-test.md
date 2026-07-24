@@ -39,14 +39,14 @@ match the baseline column. A green run here is the gate for #114.
 
 | Field | Value |
 |---|---|
-| Date of run | |
-| Tester | |
+| Date of run | 2026-07-24 |
+| Tester | Dirk Postma |
 | ble-plx package + version | `react-native-ble-plx@3.5.1` (dotintent) — **baseline** |
 | Architecture | Legacy (`newArchEnabled: false`, `app.json`) — **baseline** |
 | Expo / RN | SDK 54 / RN 0.81.5 — **baseline** |
-| App version / build | |
-| iPhone model / iOS version | |
-| Strap / watch | |
+| App version / build | 1.1.0 (12) — TestFlight |
+| iPhone model / iOS version | iPhone 16 |
+| Strap / watch | Garmin Forerunner 970 (Broadcast Heart Rate) |
 
 ---
 
@@ -109,11 +109,17 @@ fragile feature.
 10. **Reconnect.** Tap the same strap again → connects and streams BPM as in
     steps 5–6. *Expected: reconnect works with no app restart.*
 11. **Unexpected drop → foreground auto-reconnect.** While connected and
-    **in the foreground**, force a drop (walk out of range, or stop broadcast so
-    the watch drops the link). The state shows **"Reconnecting…"**; the app
-    retries up to **5 times** with growing backoff (`RECONNECT_ATTEMPTS = 5`,
-    `handleDrop`). Bring the strap back **within** that window → returns to
-    **"Connected"** and live BPM. *Expected: auto-reconnects without user action.*
+    **in the foreground**, force a real **link drop** — walk the watch far out of
+    BLE range, power the watch off, or (FR970, easiest) toggle the watch's phone
+    connection: long-press **Up → Settings → Connectivity → Phone → "Status"** off,
+    then on. (Note: merely *stopping broadcast* does
+    **not** drop the link on a Garmin — it keeps the link open and goes silent,
+    which is step 8's "Connected — no signal", not this path.) The state shows
+    **"Reconnecting…"**; the app retries up to **5 times** with growing backoff
+    (`RECONNECT_ATTEMPTS = 5`, `handleDrop`). Bring the strap back **within** that
+    window → returns to **"Connected"** and live BPM. *Expected: auto-reconnects
+    without user action.* Easiest to verify together with the out-of-range walk
+    (steps 13–14).
 12. **Drop exceeds retries.** Repeat step 11 but keep the strap away past all 5
     attempts. The state settles on **"Connection lost"** with **"Connection lost
     — the device is no longer reachable"**, the BPM dims to the last reading, and
@@ -214,20 +220,20 @@ is the reference every migration PR compares against.
 
 | # | Step | Result (PASS / FAIL / N/A) | Notes / observed values |
 |---|---|---|---|
-| 1 | Radio gating (BT off→on) | | |
-| 2 | Discovery (name + RSSI) | | |
-| 3 | RSSI refreshes | | |
-| 4 | Stale ~3 s → revive | | |
-| 5 | Connect (≤10 s) | | |
-| 6 | Acquiring → live BPM ~1 Hz | | |
-| 7 | Sensor-contact hint | | |
-| 8 | Live stale ~5 s "no signal" | | |
-| 9 | User disconnect → Scan | | |
-| 10 | Reconnect | | |
-| 11 | Foreground drop → auto-reconnect (5 tries) | | |
-| 12 | Drop exceeds retries → "Connection lost" | | |
-| 13 | Out of range → degrades gracefully | | |
-| 14 | Return in range → resumes | | |
+| 1 | Radio gating (BT off→on) | FAIL | Scan does **not** auto-resume when BT is toggled back on — screen stays "Bluetooth is turned off". Workaround: manually pause + resume scan. Known edge case, not fixing now. |
+| 2 | Discovery (name + RSSI) | PASS | Forerunner 970 appears within a few seconds with name + live RSSI; only the HR sensor listed. |
+| 3 | RSSI refreshes | PASS | RSSI value updates as the watch moves closer/farther. |
+| 4 | Stale ~3 s → revive | PASS | Row greys out after ~3 s of silence; revives on next advertisement when broadcast resumes. |
+| 5 | Connect (≤10 s) | PASS | Connects fine. **Behavioral diff:** build 12 predates the React Navigation migration — "connecting" shows on the *device row* first, then the Live screen appears (not "Connecting…" in the Live header as the checklist describes). Post-migration flow should match the doc. |
+| 6 | Acquiring → live BPM ~1 Hz | PASS | Brief "acquiring signal…", then live BPM matching pulse, ~1 Hz updates, heart animation pulsing. |
+| 7 | Sensor-contact hint | PASS | "No sensor contact — check the strap or watch fit" appears on lost contact and clears when contact returns (FR970 does report the sensor-contact bit). |
+| 8 | Live stale ~5 s "no signal" | PASS | After ~5 s silence: "Connected — no signal" + "Signal lost — is the watch still broadcasting heart rate?"; BPM stops rather than freezing. Returns to live BPM on resume. |
+| 9 | User disconnect → Scan | PASS | Clean return to Scan, scanning resumes, 970 reappears. **UX nit:** list briefly flashes empty before the 970 re-appears — could retain the still-present device instead of clearing. Not blocking. |
+| 10 | Reconnect | PASS | Re-tapping the row reconnects and streams live BPM, no app restart. |
+| 11 | Foreground drop → auto-reconnect (5 tries) | PASS | Repro for a *real* drop on FR970: watch → long-press Up → Settings → Connectivity → Phone → toggle "Status" off. Link drops → "Reconnecting…"; toggling back on returns to "Connected" + live BPM, no tap. (Stopping *broadcast* only gives "Connected — no signal", step 8.) |
+| 12 | Drop exceeds retries → "Connection lost" | PASS | After ~30 s off (past all 5 retries): "Connection lost — the device is no longer reachable", BPM dimmed to last reading, button becomes "Back to devices". No crash/spinner. |
+| 13 | Out of range → degrades gracefully | PASS | Verified via watch-BT-off (same as step 11): goes "Reconnecting…", no crash/hang/frozen-live BPM. |
+| 14 | Return in range → resumes | PASS | Watch BT back on within the retry window → auto-returns to "Connected" + live BPM, no user action. |
 | 15 | Background stays connected | | |
 | 16 | Foreground resumes cleanly | | |
 | 17 | Background drop → pending reconnect | | |
