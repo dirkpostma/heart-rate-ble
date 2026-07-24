@@ -71,7 +71,10 @@ export const themes: { light: ColorRoles; dark: ColorRoles } = {
 // appearance subscription re-renders every consumer on switch, so no provider.
 export function useTheme(): ColorRoles {
   const scheme = useColorScheme();
-  return themes[scheme ?? 'dark'];
+  // RN 0.86's ColorSchemeName is 'light' | 'dark' | 'unspecified' (no more
+  // null) — only an explicit 'light' picks the light theme; 'unspecified'
+  // and 'dark' both fall back to the app's historical dark look.
+  return themes[scheme === 'light' ? 'light' : 'dark'];
 }
 
 // Theme-agnostic scales — plain exports, resolved once.

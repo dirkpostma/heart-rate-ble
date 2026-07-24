@@ -6,17 +6,11 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
       "url": "https://u.expo.dev/99bcbc6b-f9c2-4e8f-bec5-073d8d773618"
-    },
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0D1117"
     },
     "ios": {
       "supportsTablet": false,
@@ -39,7 +33,6 @@
         "backgroundImage": "./assets/adaptive-icon-background.png",
         "backgroundColor": "#E8234B"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.BLUETOOTH",
@@ -51,9 +44,16 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "./plugins/withFmtXcode26Fix.js",
       [
-        "react-native-ble-plx",
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0D1117"
+        }
+      ],
+      [
+        "@sfourdrinier/react-native-ble-plx",
         {
           "isBackgroundEnabled": true,
           "modes": [
@@ -67,7 +67,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "16.2"
+            "deploymentTarget": "16.4"
           }
         }
       ],

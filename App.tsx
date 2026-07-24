@@ -35,7 +35,7 @@ function AppRoot() {
       {/* UpdateBanner and DemoSurface stay mounted outside the navigator so
           they persist across screen transitions. */}
       <UpdateBanner />
-      <NavigationContainer ref={navigationRef} theme={navThemes[scheme ?? 'dark']}>
+      <NavigationContainer ref={navigationRef} theme={navThemes[scheme === 'light' ? 'light' : 'dark']}>
         {/* Header + content chrome derive entirely from the nav theme; no
             per-screen style overrides. */}
         <Stack.Navigator initialRouteName="Scan">
