@@ -16,6 +16,25 @@ requirement with zero setup on the phone.** Tailscale provisions Let's
 Encrypt certificates, which chain to ISRG Root X1, and ISRG Root X1/X2 are
 in Apple's built-in iOS trust store. No profile, no manual trust step.
 
+> **Correction, 2026-07-25** (from executing this recipe in #125): serving
+> a *path* additionally requires **root** — it fails with `401
+> Unauthorized: must be root, or be an operator and able to run 'sudo
+> tailscale' to serve a path`, and this Mac has no passwordless sudo. The
+> open-source-variant caveat in §2 was necessary but not sufficient. The
+> working form proxies a local port instead (no root needed), which is the
+> fallback this doc already suggested for the wrong reason:
+>
+> ```sh
+> python3 -m http.server 8080 --directory ~/adhoc-install   # or equivalent
+> tailscale serve --bg --https=443 http://127.0.0.1:8080
+> ```
+>
+> Implemented in `scripts/serve-adhoc-install.sh`. Also measured: the first
+> HTTPS request takes ~15s while the certificate is provisioned (listed
+> below as an open question), and MagicDNS does not resolve from the
+> serving node itself. The manifest shape, the plain-anchor link, and the
+> Let's Encrypt trust chain all worked exactly as documented.
+
 Minimal recipe (open-source/Homebrew Tailscale on the Mac Studio — which
 is what's installed):
 
