@@ -80,12 +80,6 @@ Every run is a **cold** build — the project is staged into a fresh temp
 directory, so there is no DerivedData cache and all ~117 pods compile from
 scratch. Budget tens of minutes.
 
-If it feels far slower than that, check `uptime` against the core count
-before blaming the build. The first proven run took 39 minutes only because
-~9 of the Mac's 12 cores were pinned by unrelated runaway processes; the
-archive itself had less than one core. `ps -A -o %cpu,comm | sort -rn | head`
-finds the culprit.
-
 ### Build numbers
 
 `appVersionSource: "remote"` makes EAS the source of truth, and — contrary to
