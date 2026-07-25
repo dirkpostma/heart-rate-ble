@@ -332,7 +332,7 @@ with #118 / #134 / #136 all in. Build 1.1.0 (17), same tester and hardware.
 |---|---|---|---|---|---|
 | 7 | Sensor-contact hint | PASS | N/A | **PASS** | Hint appears on lost skin contact and clears when contact returns. |
 | 17 | Background drop → pending reconnect | **FAIL** (#117) | UNTESTABLE (dev client) | **PASS** | Backgrounded + screen locked, watch phone-status off ~30 s then on: the session recovered on its own, no app interaction. No crash on the #134 path. |
-| 23 | Live Activity drop grace → auto-end | PASS (late, ~7 min) | SKIPPED | SKIPPED | Not run. |
+| 23 | Live Activity drop grace → auto-end | PASS (late, ~7 min) | SKIPPED | **FAIL** | Still on the Lock Screen after **23 min** against a 5 min target. Cause below — a direct consequence of steps 17/#134 now working. |
 | 24 | State restoration wake (#47) | SKIPPED | UNTESTABLE (dev client) | SKIPPED | Not run — still never characterised on any build. |
 
 **Step 17 is the notable result**, and it explains a puzzle the migration run
@@ -354,6 +354,26 @@ Recorded from a **single** pass. This is a background/timing path with known
 run-to-run variance (see the migration run's step 11 note), so a long-standing
 FAIL flipping to PASS is worth confirming on the next build before treating it
 as settled.
+
+**Step 23 regressed as a direct consequence** — the two results are the same
+mechanism seen from opposite ends. The grace-end can only fire two ways
+(`liveSurfaceDriver.ts`): the JS `setTimeout` armed in `goStale()`, which is
+frozen while the app is suspended; or the opportunistic `checkGrace()` that the
+store subscription runs **on the next store event**. With the app suspended and
+the watch off there are *no* store events — iOS is holding the pending connect
+and it emits nothing until the sensor returns. Neither path fires, and the
+activity sits there. The code comment already anticipated exactly this: *"a
+never-woken app leaves the activity stale until its 8 h ceiling."*
+
+On the baseline it passed at ~7 min **because** the background reconnect gave
+up (that is #117's FAIL): giving up produced a `disconnected` store event, which
+woke the app, which ran `checkGrace()`. The defect was what made the step pass.
+Now that the reconnect correctly waits indefinitely, nothing wakes the app.
+
+Fixing this by waking the app on a timer would fight iOS rather than work with
+it. The direction that matches how step 20 already works is ActivityKit's own
+dismissal policy — hand iOS an end date up front, the same way `staleDate`
+self-labels the activity stale with no app execution.
 
 ---
 
