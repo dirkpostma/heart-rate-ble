@@ -34,12 +34,16 @@ export function ScanScreen({ navigation }: Props) {
     // (issue #82: per-screen quirks stay local, never Screen props).
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.statusRow}>
+        {/* An error means no scan is running, whatever the scan session
+            thinks — never claim to be scanning while one is showing (#136). */}
         <Text color="textSecondary">
-          {scanEnabled
-            ? scanning
-              ? 'Scanning for heart-rate sensors'
-              : 'Waiting for Bluetooth…'
-            : 'Scanning paused'}
+          {!scanEnabled
+            ? 'Scanning paused'
+            : error
+              ? 'Not scanning'
+              : scanning
+                ? 'Scanning for heart-rate sensors'
+                : 'Waiting for Bluetooth…'}
         </Text>
         <Switch
           value={scanEnabled}
@@ -83,13 +87,18 @@ export function ScanScreen({ navigation }: Props) {
           );
         }}
         ListEmptyComponent={
-          <View style={styles.emptyBlock}>
-            <Text color="textSecondary" style={styles.empty}>
-              {scanEnabled
-                ? 'No sensors yet. Put your watch in Broadcast Heart Rate mode and keep it close.'
-                : 'Scanning is off. Flip the switch to look for sensors.'}
-            </Text>
-          </View>
+          // With an error showing, the empty list is explained by it —
+          // repeating the broadcast-mode hint would send the user to the
+          // watch when the problem is the phone's radio (#136).
+          error ? null : (
+            <View style={styles.emptyBlock}>
+              <Text color="textSecondary" style={styles.empty}>
+                {scanEnabled
+                  ? 'No sensors yet. Put your watch in Broadcast Heart Rate mode and keep it close.'
+                  : 'Scanning is off. Flip the switch to look for sensors.'}
+              </Text>
+            </View>
+          )
         }
       />
       {/* One always-present, prominent entry point to the connect-help
