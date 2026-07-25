@@ -205,7 +205,10 @@ comment). Record current behaviour precisely so the migration has a reference.
     resuming updates, and as a live "Connected" session with current BPM when you
     next open the app, with no manual reconnect.*
 
-    Getting iOS to actually kill-and-restore on demand is hard to force; if a
+    Getting iOS to actually kill-and-restore on demand is hard to force, and in
+    practice it never has been: baseline, migration and build 17 all left this
+    step unrun, and as of 2026-07-25 it is **not planned** (see the build-17
+    section). Restoration therefore has no verified behaviour on any build. If a
     genuine system kill can't be reproduced in the session, record that and note
     the closest observed behaviour (e.g. long background survival in section E)
     rather than marking PASS. This step's baseline is the regression reference
@@ -333,7 +336,7 @@ with #118 / #134 / #136 all in. Build 1.1.0 (17), same tester and hardware.
 | 7 | Sensor-contact hint | PASS | N/A | **PASS** | Hint appears on lost skin contact and clears when contact returns. |
 | 17 | Background drop → pending reconnect | **FAIL** (#117) | UNTESTABLE (dev client) | **PASS** | Backgrounded + screen locked, watch phone-status off ~30 s then on: the session recovered on its own, no app interaction. No crash on the #134 path. |
 | 23 | Live Activity drop grace → auto-end | PASS (late, ~7 min) | SKIPPED | **FAIL** | Still on the Lock Screen after **23 min** against a 5 min target. Cause below — a direct consequence of steps 17/#134 now working. |
-| 24 | State restoration wake (#47) | SKIPPED | UNTESTABLE (dev client) | SKIPPED | Not run — still never characterised on any build. |
+| 24 | State restoration wake (#47) | SKIPPED | UNTESTABLE (dev client) | NOT PLANNED | Never characterised on any build, and no longer scheduled — a genuine iOS system kill can't be forced on demand. See "Where that leaves the follow-ups" below. |
 
 **Step 17 is the notable result**, and it explains a puzzle the migration run
 left open. Three data points now line up:
@@ -375,6 +378,30 @@ it. The direction that matches how step 20 already works is ActivityKit's own
 dismissal policy — hand iOS an end date up front, the same way `staleDate`
 self-labels the activity stale with no app execution. Tracked in
 [#140](https://github.com/dirkpostma/heart-rate-ble/issues/140).
+
+### Where that leaves the follow-ups
+
+Closing out [#117](https://github.com/dirkpostma/heart-rate-ble/issues/117) and
+[#119](https://github.com/dirkpostma/heart-rate-ble/issues/119) on the build-17
+results, with two knowingly-open ends:
+
+- **Step 17 / #117 — closed on a single PASS.** The confirming second run this
+  section asked for was judged not worth the device session: the mechanism is
+  understood (the fork's background pending-connect works; #134's crash was what
+  hid it), and step 23's independent failure corroborates it — the activity only
+  survives indefinitely *because* the reconnect now waits indefinitely. If the
+  background drop is ever seen failing again, reopen #117 rather than filing new.
+- **Step 24 — deliberately not verified.** Forcing a genuine iOS system kill on
+  demand is impractical, so state restoration stays uncharacterised on every
+  build to date; #119 is closed rather than held open for a test that will not be
+  run. The restoration path is live in the app (`restoreStateIdentifier`,
+  `adoptRestored`) and untested on the fork's `Restoration` subspec — treat any
+  restoration-related bug report as first-contact evidence, not a regression.
+- **Step 20 — still PARTIAL, now
+  [#141](https://github.com/dirkpostma/heart-rate-ble/issues/141).** Stale
+  labelling fires several times later than the 20 s `staleDate`, on both
+  architectures. It matters beyond cosmetics because #140 proposes building the
+  grace-end on that same system-enforced mechanism.
 
 ---
 
