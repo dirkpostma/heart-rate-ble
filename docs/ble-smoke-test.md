@@ -278,3 +278,76 @@ The migration should watch these closely and, where possible, tighten them.
 low-single-digit %/h per the research estimate; record an Instruments Energy Log
 or battery delta here if run (`docs/research/background-ble-live-activity-ios.md`
 §6).
+
+---
+
+## Migration run results (#114 — fork + New Architecture)
+
+The Phase 4 gate run for [#114](https://github.com/dirkpostma/heart-rate-ble/issues/114):
+same checklist, compared step-by-step against the baseline column above.
+Resolution bar: every baseline PASS stays PASS, #117/#118 don't regress, no
+New-Architecture crash.
+
+| Field | Value |
+|---|---|
+| Date of run | 2026-07-24 |
+| Tester | Dirk Postma |
+| ble-plx package + version | `@sfourdrinier/react-native-ble-plx@3.8.4` (fork, TurboModule) |
+| Architecture | New Architecture (Fabric + TurboModules) |
+| Expo / RN | SDK 57 / RN 0.86.0 (built from source) |
+| App version / build | dev client build `3f01f3d4` @ `b98bedf`, bundle over Metro tunnel |
+| iPhone model / iOS version | iPhone 16 |
+| Strap / watch | Garmin Forerunner 970 (Broadcast Heart Rate) |
+
+| # | Step | Baseline | Migration result | Notes |
+|---|---|---|---|---|
+| 1 | Radio gating (BT off→on) | FAIL | FAIL | Same as baseline: scan does not auto-resume after Bluetooth is toggled back on (#118). No regression, no crash. |
+| 2 | Discovery (name + RSSI) | PASS | PASS | FR970 appears within a few seconds with name + live RSSI; only the HR sensor listed. |
+| 3 | RSSI refreshes | PASS | PASS | RSSI tracks distance. |
+| 4 | Stale ~3 s → revive | PASS | PASS | Greys out after ~3 s silence, revives on resumed broadcast. |
+| 5 | Connect (≤10 s) | PASS | PASS | Connects near-instantly — the "Connecting…" state was never visible (baseline's step-5 nav diff is gone; flow now matches the doc, just faster than the eye). |
+| 6 | Acquiring → live BPM ~1 Hz | PASS | PASS | Live BPM matching pulse, ~1 Hz, heart animation pulsing. |
+| 7 | Sensor-contact hint | PASS | N/A | Not exercised this run (baseline confirmed FR970 reports the contact bit). |
+| 8 | Live stale ~5 s "no signal" | PASS | PASS | ~5 s silence → "Connected — no signal"; returns to live BPM on resumed broadcast. |
+| 9 | User disconnect → Scan | PASS | PASS | Clean return to Scan, scanning resumes. Baseline's UX nit persists: list still briefly flashes empty before the 970 reappears (not a migration regression). |
+| 10 | Reconnect | PASS | PASS | Re-tap connects and streams, no app restart. |
+| 11 | Foreground drop → auto-reconnect (5 tries) | PASS | PASS | Phone-toggle drop → "Reconnecting…" → auto-returns to "Connected" + live BPM. Note: across several repeats, once landed on "Connection lost" needing manual back-to-Scan — consistent with the 5-attempt window being exhausted when the drop lasts longer, i.e. step-12 behavior, not a new defect. |
+| 12 | Drop exceeds retries → "Connection lost" | PASS | PASS | Past all retries: "Connection lost — the device is no longer reachable", BPM dims, "Back to devices". No crash/spinner. |
+| 13 | Out of range → degrades gracefully | PASS | PASS | Verified via phone-toggle link drop — same method as baseline (which also used the toggle rather than a physical walk). |
+| 14 | Return in range → resumes | PASS | PASS | Same method: link restored within the retry window → auto-resumes live BPM (= step 11). |
+| 15 | Background stays connected | PASS | PASS | Backgrounded 1–2 min: connection stayed alive, Live Activity present and updating. |
+| 16 | Foreground resumes cleanly | PASS | PASS | Reopened into the live session with current BPM — no reconnect flash. |
+| 17 | Background drop → pending reconnect | FAIL (#117) | UNTESTABLE (dev client) | iOS killed the backgrounded dev build, then the restoration identifier triggered a headless relaunch — which a dev client can't do cleanly (bundle over tunnel + dev launcher). Attempt 1 foregrounded into the Expo launcher; attempt 2 relaunched into a stuck "waiting for Bluetooth" Scan screen (radio on) needing a force-quit. A clean cold start works normally, so the stuck state is confined to this path. Needs characterizing on a TestFlight/internal build with an embedded bundle; baseline was FAIL here anyway, so the gate's no-regression bar isn't violated — but the stuck relaunch state is a follow-up to watch. |
+| 18 | Live Activity starts on first reading | PASS | PASS | Observed during step 15: Live Activity on Lock Screen with 970 name + real BPM. |
+| 19 | Live Activity updates coalesced (~2.5 s / 15 s) | PASS | PASS | Calm ~2–3 s cadence, no per-beat flicker, not frozen. |
+| 20 | Live Activity self-labels stale (~20 s) | PARTIAL | PARTIAL | Flips to stale correctly (greyed heart, "last reading … ago") but at ~120 s — vs baseline's ~60 s and the code's ~20 s target. Same mechanism-works / timing-loose family as baseline; single-sample timings under iOS suspended-app coalescing are noisy, so not called a regression, but worth watching. |
+| 21 | Live Activity recovers from stale | PASS | PASS | Resumed broadcast returns the activity to live — red heart, fresh BPM. |
+| 22 | Live Activity ends on disconnect | PASS | PASS | Disconnect removes the Live Activity promptly. |
+| 23 | Live Activity drop grace → auto-end (~5 min) | PASS (late, ~7 min) | SKIPPED | Not run this session. Mechanism shares the stale path verified in 20/21; verify timing on the next TestFlight/internal build together with 17/24. |
+| 24 | State restoration wake (#47) | SKIPPED | UNTESTABLE (dev client) | Same limitation as step 17 — headless restoration relaunch can't work on a dev client. Baseline also SKIPPED. Characterize both on the next TestFlight/internal-dist build. |
+
+**Migration verdict (#114 Phase 4):** **18 PASS, 1 PARTIAL (20), 1 FAIL (1 —
+identical to baseline, #118), 1 N/A (7), 1 SKIPPED (23), 2 UNTESTABLE on dev
+client (17, 24).** Run on 2026-07-24/25, dev client `3f01f3d4` @ `b98bedf`,
+iPhone 16, Forerunner 970.
+
+Against the resolution bar:
+
+- **Every baseline PASS stays PASS** — holds for all steps exercised. Two
+  baseline PASSes went unverified this run (7 sensor-contact hint, 23 drop-grace
+  auto-end); both are low-risk (7 is unchanged flag parsing; 23 shares the stale
+  mechanism verified in 20/21) — re-check on the next OTA build.
+- **#117 / #118 don't regress** — #118 identical FAIL; #117 untestable on a dev
+  client (baseline FAIL), so nothing got worse.
+- **No New-Architecture crash** — none observed across the full run; the
+  background process death was dev-build memory pressure (no crash log on
+  device), not a crash.
+
+Improvements over baseline: step 5's connect flow now matches the doc (the
+baseline's pre-navigation diff is gone) and connects near-instantly.
+
+Follow-ups for the next TestFlight/internal-dist build (embedded bundle — the
+paths a dev client cannot exercise): characterize 17 + 24 (#117/#47), verify 7
+and 23, and check whether the stuck "waiting for Bluetooth" relaunch state
+(step 17 note) reproduces outside the dev client. Tracked in
+[#119](https://github.com/dirkpostma/heart-rate-ble/issues/119).

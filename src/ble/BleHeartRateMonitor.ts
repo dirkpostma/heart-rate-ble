@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 import { AppState } from 'react-native';
-import { BleManager, Device, State, Subscription } from 'react-native-ble-plx';
+import { BleManager, Device, State, Subscription } from '@sfourdrinier/react-native-ble-plx';
 import {
   ConnectionState,
   DiscoveredDevice,
@@ -22,7 +22,7 @@ const RESTORE_STATE_ID = 'dev.dirkpostma.heartrateble.restore';
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Real BLE heart-rate source via react-native-ble-plx. Garmin broadcast
+ * Real BLE heart-rate source via @sfourdrinier/react-native-ble-plx. Garmin broadcast
  * drops the link whenever the watch leaves broadcast mode and has known
  * intermittent dropouts, so unexpected disconnects trigger a bounded
  * auto-reconnect loop before giving up.
