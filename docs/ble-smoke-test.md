@@ -373,7 +373,8 @@ Now that the reconnect correctly waits indefinitely, nothing wakes the app.
 Fixing this by waking the app on a timer would fight iOS rather than work with
 it. The direction that matches how step 20 already works is ActivityKit's own
 dismissal policy — hand iOS an end date up front, the same way `staleDate`
-self-labels the activity stale with no app execution.
+self-labels the activity stale with no app execution. Tracked in
+[#140](https://github.com/dirkpostma/heart-rate-ble/issues/140).
 
 ---
 
