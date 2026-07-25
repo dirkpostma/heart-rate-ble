@@ -74,6 +74,12 @@ eas build --profile development --platform ios --local \
   --output ./build/HeartRateBLE-dev.ipa
 ```
 
+**4m35s** on the Mac Studio (2026-07-25, cold), against ~15–25 min on EAS
+servers. That gap plus the quota saving is why local is the default here —
+[the local-builds research](research/local-ios-builds.md) recommended the
+opposite split (cloud while quota allows, purely to keep the expo.dev
+Install page), which the script below makes unnecessary.
+
 Then serve it as a tap-to-install page:
 
 ```sh
@@ -81,10 +87,15 @@ Then serve it as a tap-to-install page:
 ./scripts/serve-adhoc-install.sh off             # stop when done
 ```
 
-The script reads the bundle ID and version straight out of the `.ipa`,
-writes `manifest.plist` + `index.html` next to it, and runs
-`tailscale serve --bg --https=443`. On the iPhone: **Tailscale VPN on**,
-open `https://homeserver.tail7ee158.ts.net/`, tap *Install*.
+The script stages a copy of the `.ipa` into `~/adhoc-install` (override
+with `ADHOC_INSTALL_DIR`) next to a generated `manifest.plist`,
+`index.html` and a 57×57 `display-image`, serves that directory on
+`127.0.0.1:8080`, and points `tailscale serve --bg --https=443` at the
+port. Bundle ID and version are read out of the `.ipa` itself — a manifest
+that disagrees with the binary is a documented silent-install failure.
+
+On the iPhone: **Tailscale VPN on**, open
+`https://homeserver.tail7ee158.ts.net/`, tap *Tap to install*.
 
 Why Tailscale: Apple only installs an ad hoc `.ipa` over the air through an
 `itms-services://` manifest, and requires **both** the manifest and the
@@ -96,20 +107,30 @@ Prerequisites (one-time): `brew install fastlane`; the Mac Studio's
 Tailscale node logged in; **DNS → HTTPS Certificates** enabled in the
 Tailscale admin console.
 
+Traps, all hit for real on 2026-07-25:
+
+- **`tailscale serve <path>` requires root** — it fails with `401
+  Unauthorized: must be root, or be an operator and able to run 'sudo
+  tailscale' to serve a path`, and this Mac has no passwordless sudo. That
+  is why the script proxies a local port instead of serving the directory
+  directly; port proxying needs no root and is also the only mode the
+  non-open-source Tailscale distributions support.
+- **The first HTTPS request takes ~15s** while Let's Encrypt provisions the
+  certificate (measured: 14.5s). Later requests are immediate. A slow first
+  load is not a failure.
 - **Node keys expire** (180 days). When homeserver's expires, the phone
   shows *"Peer's Node Key Has Expired"* and `tailscale status` on the Mac
-  says `Logged out.` Fix with `tailscale up`; prevent with admin console →
-  Machines → homeserver → **Disable key expiry**.
-- **Re-login must restate non-default flags.** A bare `tailscale up` on
-  this node errors out rather than silently reverting settings; the
-  settings-preserving form is `tailscale up --ssh` (Tailscale SSH is
-  enabled here). Tailscale prints the correct command in the error.
-- **Only the browser approval is human-only.** `tailscale up` prints a
-  `https://login.tailscale.com/a/…` URL — a public URL, reachable while
-  the node is still offline. An agent can run the command and hand the URL
-  over; a human has to approve it. Note that Claude Code running *on* the
-  Mac Studio is the out-of-band way in when the tailnet is down, since its
-  connection does not traverse the tailnet.
+  says `Logged out.` Prevent it in the admin console → Machines →
+  homeserver → **Disable key expiry**. To fix it, re-login — but a bare
+  `tailscale up` refuses to run rather than silently reverting settings;
+  the settings-preserving form here is **`tailscale up --ssh`**, and
+  Tailscale prints the correct command in its error. Only the browser
+  approval needs a human: the `https://login.tailscale.com/a/…` URL it
+  prints is public, so it works from the phone while the node is offline.
+- **MagicDNS does not resolve from the Mac Studio itself** even with
+  `CorpDNS: true`. The phone resolves it fine; to verify the page from the
+  server, use `curl --resolve homeserver.tail7ee158.ts.net:443:$(tailscale
+  ip -4)` so the certificate is still properly validated.
 
 ### Cloud build (fallback, spends quota)
 
