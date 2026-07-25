@@ -21,16 +21,19 @@ class TestMonitor implements HeartRateMonitor {
   connectImpl: (deviceId: string) => Promise<void> = async () => {};
   private onDevice: ((device: DiscoveredDevice) => void) | null = null;
   private onScanError: ((error: Error) => void) | null = null;
+  private onScanStarted: (() => void) | null = null;
   private sampleListeners = new Set<(sample: HeartRateSample) => void>();
   private stateListeners = new Set<(state: ConnectionState) => void>();
 
   startScan(
     onDevice: (device: DiscoveredDevice) => void,
     onError: (error: Error) => void,
+    onScanStarted?: () => void,
   ): void {
     this.scanning = true;
     this.onDevice = onDevice;
     this.onScanError = onError;
+    this.onScanStarted = onScanStarted ?? null;
   }
 
   stopScan(): void {
@@ -64,6 +67,11 @@ class TestMonitor implements HeartRateMonitor {
 
   failScan(message: string): void {
     this.onScanError?.(new Error(message));
+  }
+
+  /** The source restarted its own scan (e.g. Bluetooth toggled back on). */
+  resumeScan(): void {
+    this.onScanStarted?.();
   }
 
   emitSample(bpm: number): void {
@@ -376,6 +384,33 @@ describe('createHeartRateStore', () => {
       // the staleness ticker survives the error too
       jest.advanceTimersByTime(DEVICE_STALE_MS + 1000);
       expect(store.getState().devices[0].stale).toBe(true);
+    });
+
+    it('clears the error when the source resumes its own scan (#118)', () => {
+      monitor.failScan('Bluetooth is turned off');
+      expect(store.getState().error).toBe('Bluetooth is turned off');
+
+      monitor.resumeScan();
+
+      expect(store.getState().error).toBeNull();
+      expect(store.getState().scanning).toBe(true);
+      // devices seen before the radio went off stay listed (they grey out
+      // via staleness and revive on their next advertisement)
+      monitor.advertise(GARMIN);
+      expect(store.getState().devices).toHaveLength(1);
+    });
+
+    it('leaves a connect failure visible across a scan resume', async () => {
+      monitor.advertise(GARMIN);
+      monitor.connectImpl = async () => {
+        throw new Error('nope');
+      };
+      await store.getState().connect(GARMIN);
+      expect(store.getState().connectError).toContain('nope');
+
+      monitor.resumeScan();
+
+      expect(store.getState().connectError).toContain('nope');
     });
   });
 });

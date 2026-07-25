@@ -281,6 +281,50 @@ or battery delta here if run (`docs/research/background-ble-live-activity-ios.md
 
 ---
 
+## Fix run: step 1 radio gating (#118)
+
+Targeted re-run of the one step both previous runs failed. **Not** a full
+24-step pass — only step 1 and the crash it exposed were exercised; the
+follow-ups #119 lists (17, 23, 24, 7) remain outstanding.
+
+| Field | Value |
+|---|---|
+| Date of run | 2026-07-25 |
+| Tester | Dirk Postma |
+| ble-plx package + version | `@sfourdrinier/react-native-ble-plx@3.8.4` (fork, TurboModule) |
+| Architecture | New Architecture (Fabric + TurboModules) |
+| Expo / RN | SDK 57 / RN 0.86.0 |
+| App version / build | 1.1.0 (16) — TestFlight, embedded bundle |
+| iPhone model / iOS version | iPhone 16 / iOS 26.5.2 |
+| Strap / watch | Garmin Forerunner 970 (Broadcast Heart Rate) |
+
+| # | Step | Baseline | Migration | Fix run | Notes |
+|---|---|---|---|---|---|
+| 1 | Radio gating (BT off→on) | FAIL | FAIL | **PASS** | Three consecutive off→on cycles via **Settings → Bluetooth**, no interaction with the app between them: scanning resumed on its own each time, the error cleared, the 970 reappeared. Three cycles rather than one because the original defect was a listener that fired once and detached — a single cycle can pass by accident. |
+
+Bluetooth was toggled from **Settings**, not Control Center: Control Center is a
+soft disconnect that leaves the radio up for system services, and it does not
+background the app — a materially different path, as the crash below shows.
+
+### Found during this run
+
+- **#134 — crash (SIGSEGV), fixed in #133's sibling PR #135.** Turning Bluetooth
+  off in Settings *while connected* segfaulted the app on build 15. Settings
+  backgrounds the app, so the link drop took `handleDrop`'s background branch —
+  the only caller that omits the connect timeout — and `connectToDevice` received
+  null options, which the New Architecture's `ConnectionOptions&` parameter
+  dereferences without a null check. Latent since the migration; the foreground
+  retry loop always passes a timeout and was never affected. Verified fixed on
+  build 16. Reported upstream as
+  [sfourdrinier/react-native-ble-plx#99](https://github.com/sfourdrinier/react-native-ble-plx/issues/99).
+- **#136 — misleading UI when Bluetooth is off at launch.** Cold-starting with
+  the radio already off shows "Scanning for heart-rate sensors" and "No sensors
+  yet. Put your watch in Broadcast Heart Rate mode…" with no error, because
+  nothing errors an in-flight scan that never started. Cosmetic; scanning does
+  start correctly once Bluetooth is on.
+
+---
+
 ## Migration run results (#114 — fork + New Architecture)
 
 The Phase 4 gate run for [#114](https://github.com/dirkpostma/heart-rate-ble/issues/114):
