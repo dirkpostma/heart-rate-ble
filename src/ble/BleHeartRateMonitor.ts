@@ -152,9 +152,15 @@ export class BleHeartRateMonitor implements HeartRateMonitor {
   }
 
   private async establish(deviceId: string, timeoutMs?: number): Promise<void> {
+    // Always an object, never undefined: ble-plx normalizes a missing
+    // options argument to null, and the New Architecture's native method
+    // takes a ConnectionOptions& it dereferences without a null check —
+    // omitting it segfaults the app (#134). An empty object yields the
+    // same empty dictionary the old architecture got from nil, so the
+    // no-timeout OS-held pending connect keeps its meaning.
     const device = await this.manager.connectToDevice(
       deviceId,
-      timeoutMs === undefined ? undefined : { timeout: timeoutMs },
+      timeoutMs === undefined ? {} : { timeout: timeoutMs },
     );
     await device.discoverAllServicesAndCharacteristics();
     this.attach(device);
