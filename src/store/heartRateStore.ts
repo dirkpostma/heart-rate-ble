@@ -125,6 +125,12 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
         (scanError) => {
           store.setState({ error: scanError.message });
         },
+        // A source that restarts its own scan (Bluetooth toggled back on,
+        // #118) makes the radio-off error obsolete. `connectError` is not
+        // touched — it must outlive scan restarts to ever be seen (#13).
+        () => {
+          store.setState({ error: null });
+        },
       ),
     );
   }
