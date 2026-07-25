@@ -63,13 +63,16 @@ export class BleHeartRateMonitor implements HeartRateMonitor {
   startScan(
     onDevice: (device: DiscoveredDevice) => void,
     onError: (error: Error) => void,
+    onScanStarted?: () => void,
   ): void {
     this.stateSub?.remove();
+    // The listener stays armed for the whole scan session, not just until
+    // the first PoweredOn: toggling Bluetooth off kills the native scan,
+    // and only a live listener can restart it when the radio returns (#118).
     this.stateSub = this.manager.onStateChange((state) => {
       if (state === State.PoweredOn) {
-        this.stateSub?.remove();
-        this.stateSub = null;
         this.scan(onDevice, onError);
+        onScanStarted?.();
       } else if (state === State.Unsupported) {
         this.stateSub?.remove();
         this.stateSub = null;
@@ -79,7 +82,9 @@ export class BleHeartRateMonitor implements HeartRateMonitor {
         this.stateSub = null;
         onError(new Error('Bluetooth permission denied — enable it in Settings'));
       }
-      // PoweredOff/Resetting: keep waiting; scan starts when radio comes up.
+      // PoweredOff/Resetting: keep waiting; the scan (re)starts when the
+      // radio comes up. ble-plx has already errored the dead scan, so the
+      // off-state is surfaced without any work here.
     }, true);
   }
 

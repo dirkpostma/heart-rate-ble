@@ -29,6 +29,12 @@ export interface HeartRateMonitor {
   startScan(
     onDevice: (device: DiscoveredDevice) => void,
     onError: (error: Error) => void,
+    /**
+     * Fires each time the source's scan actually starts — including a
+     * restart after Bluetooth was toggled off and back on, the moment a
+     * previously reported radio-off error becomes obsolete (#118).
+     */
+    onScanStarted?: () => void,
   ): void;
   stopScan(): void;
   connect(deviceId: string): Promise<void>;
