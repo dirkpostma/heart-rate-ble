@@ -4,6 +4,10 @@ How to get a development build (expo-dev-client) onto an iPhone and iterate
 against it fully remotely — no Mac access, no cable, phone-only. First done
 2026-07-19; everything below was verified working then.
 
+Re-verified end to end on **2026-07-25** on the quota-free path: built
+locally, installed over the air from a Tailscale-hosted install page, and
+driven from Metro over Tailscale — no EAS build credits spent and no cable.
+
 ## One-time setup (already done)
 
 State that already exists — do not redo it:
@@ -157,18 +161,50 @@ phone selected): look for `itunesstored`/`appstored` lines such as
 
 ## Connecting the dev client to a remote dev server
 
+### Over Tailscale (preferred)
+
+Since the phone is on the tailnet anyway, skip ngrok entirely — Metro is
+already listening on `8081`, so it only needs an HTTPS front door:
+
+```sh
+npx expo start                                          # no --tunnel
+tailscale serve --bg --https=8443 http://127.0.0.1:8081
+```
+
+In the dev client: "Enter URL manually" →
+`https://homeserver.tail7ee158.ts.net:8443`. Verified working 2026-07-25
+(bundle loads, BLE heart-rate screen live). Stop with
+`tailscale serve --https=8443 off`.
+
+Port 8443 rather than 443 so this can coexist with the ad hoc install page
+above; either port works alone.
+
+- **HTTPS is mandatory — `http://` fails.** The dev client raises *"The
+  resource could not be loaded because the App Transport Security policy
+  requires the use of a secure connection."* ATS judges the URL scheme, so
+  the tailnet's own encryption does not exempt it; only `localhost` gets a
+  cleartext exception. Use the `https://…:8443` form, never
+  `http://100.75.80.38:8081`.
+- No ngrok means none of the tunnel traps below apply: no endpoint expiry,
+  no `urlRandomness` drift, and the URL is stable forever.
+
+### Over the Expo tunnel (fallback — works off the tailnet)
+
 ```sh
 npx expo start --tunnel
 ```
 
 The tunnel URL is `https://<urlRandomness>-<expoUsername>-8081.exp.direct`,
-where `urlRandomness` lives in `.expo/settings.json`. In the dev client:
-"Enter URL manually" → paste the https URL. The client remembers the server
-afterwards. Logs from the phone stream into the Metro terminal; JS edits
-fast-refresh onto the device.
+where `urlRandomness` lives in `.expo/settings.json`. Only needed when the
+phone is somewhere the tailnet isn't.
 
 Tunnel traps:
 
+- **The endpoint dies silently.** A long-running `expo start --tunnel`
+  keeps serving Metro locally while its ngrok endpoint lapses; the URL then
+  returns **421 Misdirected Request** and the dev client just fails to
+  connect. Check with `curl -o /dev/null -w '%{http_code}' <tunnel-url>`
+  before blaming the phone.
 - After killing `expo start --tunnel`, an immediate restart fails
   ("remote gone away") until the dead ngrok endpoint expires (~10 min).
   Expo may then silently mint a **new** `urlRandomness`, orphaning the
@@ -181,8 +217,9 @@ Tunnel traps:
 
 ## When to use what
 
-- **Dev client + tunnel** — daily iteration: fast refresh, live logs,
-  dev menu.
+- **Dev client + Metro over Tailscale** — daily iteration: fast refresh,
+  live logs, dev menu. Fall back to `--tunnel` only when the phone is off
+  the tailnet.
 - **TestFlight + EAS Update (over-the-air, OTA)** — final verification of a
   release build. Never publish test JS to the `production` channel: App Store
   users listen on it (runtimeVersion policy is `appVersion`, so same app
