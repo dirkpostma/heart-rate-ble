@@ -1,6 +1,17 @@
 # Expo HAS CHANGED
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v54.0.0/ before writing any code.
+This project is on **Expo SDK 57** (React Native 0.86, New Architecture on).
+Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/
+before writing any code — not the unversioned pages, and not v54, which is
+what this project used before [#120](https://github.com/dirkpostma/heart-rate-ble/pull/120).
+
+# Building and testing on a device
+
+No cable ever reaches the Mac Studio. iOS builds run **locally** (EAS build
+quota is scarce and local builds spend none of it) and install over the air;
+Metro reaches the phone over Tailscale. Read
+[docs/dev-client-testing.md](docs/dev-client-testing.md) before trying to
+get anything onto the phone.
 
 # Releasing
 

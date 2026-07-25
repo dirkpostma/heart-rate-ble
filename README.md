@@ -66,17 +66,28 @@ the way it did.
 
 ```bash
 npm install
-npx expo run:ios --device   # dev client; BLE needs a physical device
+npx expo start              # then open the dev client on a physical device
 ```
 
-- **Expo SDK 54, pinned** — the `react-native-ble-plx` config plugin breaks
-  on SDK 57.
-- **New architecture disabled** — ble-plx crashes Release builds on new
-  arch ([dotintent/react-native-ble-plx#1278](https://github.com/dotintent/react-native-ble-plx/issues/1278)).
-- The iOS **simulator has no Bluetooth** — you get the demo sensor there;
+- **Expo SDK 57, React Native 0.86, New Architecture on.** SDK 57 forces
+  the New Architecture, so BLE runs on
+  [`@sfourdrinier/react-native-ble-plx`](https://github.com/sfourdrinier/react-native-ble-plx)
+  3.8.4 (exact pin) — the only published ble-plx lineage with a TurboModule
+  rewrite for RN 0.86; upstream `dotintent` has no New Arch release.
+  Migrated in [#120](https://github.com/dirkpostma/heart-rate-ble/pull/120).
+  The SDK 54 and old-architecture pins this project used to carry are gone.
+- **One workaround remains:** `plugins/withBlePlxStripCxxModules.js` strips
+  `-fmodules -fcxx-modules` from the fork's podspec, which otherwise embeds
+  a second copy of fmt and fails the link with duplicate symbols. Delete it
+  once the fork drops the flags upstream — the file carries the diagnosis.
+- The iOS **simulator has no Bluetooth** — you get demo sensors there;
   real scanning needs a device.
-- Releases: EAS build → TestFlight; JS-only changes ship over the air with
-  `eas update` (the version footer shows binary + OTA bundle).
+- **No cable is involved.** iOS builds run locally (spending no EAS quota)
+  and install over the air; Metro reaches the phone over Tailscale —
+  [docs/dev-client-testing.md](docs/dev-client-testing.md).
+- Releases: local build → TestFlight; JS-only changes ship over the air
+  with `eas update` (the version footer shows binary + OTA bundle).
+  [docs/release-operations.md](docs/release-operations.md) has the recipes.
 
 ## Scope and known limitations
 
@@ -118,6 +129,8 @@ Where the documentation lives:
 | Design rationale (narrative) | [docs/design-notes.md](docs/design-notes.md) |
 | Research summaries | [docs/research/](docs/research/) (BLE profile, Expo + ble-plx setup) |
 | UI prototypes | [docs/prototype/](docs/prototype/) |
+| Getting a build onto a device (no cable) | [docs/dev-client-testing.md](docs/dev-client-testing.md) |
+| TestFlight / App Store operations | [docs/release-operations.md](docs/release-operations.md) |
 | Instructions for coding agents | [AGENTS.md](AGENTS.md) (loaded by Claude Code via CLAUDE.md) |
 
 **To propose a change**, open an issue framed as the *question* it resolves
@@ -152,8 +165,11 @@ Practical guardrails:
 - `npm test` must pass; the timing rules live in the store and are tested
   with fake timers and an injected fake monitor — extend that suite rather
   than adding a mocking framework.
-- Respect the two load-bearing pins (SDK 54, old architecture) — see
-  [Development](#development) for why.
+- The ble-plx fork pin is load-bearing: `@sfourdrinier/react-native-ble-plx`
+  is pinned exactly, and `plugins/withBlePlxStripCxxModules.js` exists to
+  make it link. Don't loosen either without reading
+  [Development](#development).
 - JS-only changes ship over the air with `eas update`; anything touching
-  native code or config needs a new EAS build. Builds are deliberate and
-  quota-limited — flag the need in the issue instead of assuming one.
+  native code or config needs a new build. Prefer a **local** build — it
+  costs no EAS quota, which is scarce here. Cloud builds are deliberate:
+  flag the need in the issue instead of assuming one.
