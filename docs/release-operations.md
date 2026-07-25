@@ -8,8 +8,10 @@ testers' and users' hands.
 
 ## Credentials: everything hangs off one API key
 
-There is **no fastlane** in this project. All App Store Connect (ASC)
-automation is direct REST calls to `api.appstoreconnect.apple.com`,
+No **fastlane lane** is written for this project — all App Store Connect
+(ASC) automation is direct REST calls to `api.appstoreconnect.apple.com`.
+(fastlane is installed, but only because `eas build --local` shells out to
+it; see below.) The calls are
 authenticated with the same API key that `eas submit` uses — see the
 `submit.production.ios` block in `eas.json` for the key path, key ID and
 issuer ID (the `.p8` lives in `~/.appstoreconnect/private_keys/`, not in
@@ -22,6 +24,132 @@ Auth is an ES256 JWT: header `{alg, kid, typ}`, payload
 you get DER and Apple rejects the token.
 
 App ID: `6789657851`. Team: `6EXTSNNTE6`.
+
+## Building the binary locally (no EAS build quota)
+
+Production builds are made **on the Mac Studio** with `eas build --local`,
+which spends no cloud build quota — the CLI never creates a build record on
+EAS, so there is nothing to bill. First proven end to end on 2026-07-25
+(build 14, app version 1.1.0); everything below was verified in that run.
+
+Raw `xcodebuild` remains a documented fallback (see
+[research/local-ios-builds.md](research/local-ios-builds.md)) but is not the
+shipping path: it needs manual credential export, a hand-written two-target
+`exportOptions.plist`, and manual build numbering.
+
+### One-time machine setup
+
+```sh
+brew install fastlane            # required for iOS local builds
+export LANG=en_US.UTF-8          # CocoaPods and fastlane both need UTF-8
+```
+
+**The trap that cost a build:** the Apple **WWDR G3** intermediate
+certificate must be in a keychain. The distribution certificate is issued by
+`Apple Worldwide Developer Relations Certification Authority, OU=G3`, and a
+Mac that has never run Xcode's signing flow may only carry the **G1**
+intermediate — which *expired in February 2023*. Without G3 the certificate
+still imports, but as `CSSMERR_TP_NOT_TRUSTED`; EAS validates with
+`security find-identity -v` (*valid* identities only), so the build dies at
+the Prepare credentials phase with the misleading
+
+> `Distribution certificate with fingerprint … hasn't been imported successfully`
+
+Fix, once:
+
+```sh
+curl -O https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
+security import AppleWWDRCAG3.cer -k ~/Library/Keychains/login.keychain-db
+```
+
+Diagnose it with `security find-identity <keychain>` (without `-v`): the
+identity is listed *and* tagged `CSSMERR_TP_NOT_TRUSTED` when the chain is
+the problem.
+
+### The build
+
+```sh
+eas build --profile production --platform ios --local --non-interactive \
+  --output ./build/HeartRateBLE-prod.ipa
+```
+
+Credentials for **both** targets (app and `HeartRateWidgets`) are pulled from
+EAS automatically — nothing needs importing by hand. `./build/` is gitignored.
+
+Every run is a **cold** build — the project is staged into a fresh temp
+directory, so there is no DerivedData cache and all ~117 pods compile from
+scratch. Budget tens of minutes.
+
+If it feels far slower than that, check `uptime` against the core count
+before blaming the build. The first proven run took 39 minutes only because
+~9 of the Mac's 12 cores were pinned by unrelated runaway processes; the
+archive itself had less than one core. `ps -A -o %cpu,comm | sort -rn | head`
+finds the culprit.
+
+### Build numbers
+
+`appVersionSource: "remote"` makes EAS the source of truth, and — contrary to
+a widely repeated rumor — `--local` honors it: the CLI increments the remote
+counter *before* the local/cloud fork, so `production`'s `autoIncrement`
+applies and the TestFlight duplicate-`CFBundleVersion` trap does not arise.
+No manual `build:version:set` is needed.
+
+The corollary is a real trap: **the increment happens before the build runs,
+so a build that fails still consumes its number.** The 2026-07-25 run burned
+13 on the credentials failure and shipped 14. Numbers are cheap — never
+"reclaim" one by rewinding the counter, or the next build collides. Read the
+current value with `eas build:version:get -p ios`.
+
+## Uploading to TestFlight
+
+```sh
+eas submit --platform ios --path ./build/HeartRateBLE-prod.ipa \
+  --profile production --non-interactive
+```
+
+EAS Submit is **free on every plan** (only Build and Update are usage-billed)
+and accepts any correctly signed `.ipa` — it does not check that EAS built it.
+The `submit.production.ios` block in `eas.json` is reused unchanged, so
+nothing is prompted. Worth knowing: the `.ipa` **and the `.p8` key contents**
+transit Expo's servers, because the submission to Apple runs on Expo's hosted
+service, not locally.
+
+Pure-Apple fallback, if that ever matters — nothing leaves the Mac except
+toward Apple. altool is *not* deprecated for App Store uploads (only its
+notarization role died in 2023), and it auto-discovers the key from
+`~/.appstoreconnect/private_keys/`:
+
+```sh
+xcrun altool --upload-package ./build/HeartRateBLE-prod.ipa -t ios \
+  --apiKey 42GZ665L6K --apiIssuer 69a6de6e-5ef0-47e3-e053-5b8c7c11a4d1
+```
+
+Export compliance needs no answering: `app.json` sets
+`ios.infoPlist.ITSAppUsesNonExemptEncryption: false`, which prebuild carries
+into Info.plist, so the build skips "Missing Compliance" entirely. Verify
+before uploading with
+`/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Payload/HeartRateBLE.app/Info.plist`
+on the unzipped `.ipa`.
+
+Everything downstream is upload-tool-agnostic — a locally built binary
+produces the same `builds` resource, so the TestFlight group and beta-review
+flow below is unchanged.
+
+### Confirming the upload landed
+
+Apple registers the build a few minutes after `eas submit` returns, then
+processes it (~5 minutes in the proof run). Poll the API rather than the UI:
+
+```
+GET /v1/builds?filter[app]=6789657851&filter[version]=<N>
+```
+
+`processingState` goes to `VALID` when it is usable. Then check
+`GET /v1/builds/<id>/buildBetaDetail` — `internalBuildState:
+IN_BETA_TESTING` means the internal group already has it (internal testers
+need no beta review). `externalBuildState:
+READY_FOR_BETA_SUBMISSION` is the normal resting state until the build is
+deliberately pushed to External Testers.
 
 ## TestFlight
 
