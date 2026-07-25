@@ -54,19 +54,85 @@ non-interactively.
 
 ## Building and installing
 
+Rebuilds are only needed when **native** dependencies change; JS-only
+changes never need a rebuild.
+
+Two routes. **Prefer local** — EAS build quota is scarce and a local build
+spends none of it.
+
+### Local build + Tailscale install page (default)
+
+`eas build --local` runs the whole build on the Mac Studio. It still pulls
+the remote credentials for both targets (app + `HeartRateWidgets`)
+automatically, so nothing has to be imported into the keychain. It creates
+no build record on EAS, which is why it costs no quota — and also why there
+is no expo.dev Install page, so the `.ipa` has to be self-hosted.
+
+```sh
+export LANG=en_US.UTF-8      # CocoaPods crashes without UTF-8
+eas build --profile development --platform ios --local \
+  --output ./build/HeartRateBLE-dev.ipa
+```
+
+Then serve it as a tap-to-install page:
+
+```sh
+./scripts/serve-adhoc-install.sh                 # start
+./scripts/serve-adhoc-install.sh off             # stop when done
+```
+
+The script reads the bundle ID and version straight out of the `.ipa`,
+writes `manifest.plist` + `index.html` next to it, and runs
+`tailscale serve --bg --https=443`. On the iPhone: **Tailscale VPN on**,
+open `https://homeserver.tail7ee158.ts.net/`, tap *Install*.
+
+Why Tailscale: Apple only installs an ad hoc `.ipa` over the air through an
+`itms-services://` manifest, and requires **both** the manifest and the
+`.ipa` over HTTPS with a device-trusted certificate. Tailscale's `*.ts.net`
+certificates come from Let's Encrypt, whose ISRG Root X1 is already in
+iOS's built-in trust store — so no profile and no trust step on the phone.
+
+Prerequisites (one-time): `brew install fastlane`; the Mac Studio's
+Tailscale node logged in; **DNS → HTTPS Certificates** enabled in the
+Tailscale admin console.
+
+- **Node keys expire** (180 days). When homeserver's expires, the phone
+  shows *"Peer's Node Key Has Expired"* and `tailscale status` on the Mac
+  says `Logged out.` Fix with `tailscale up`; prevent with admin console →
+  Machines → homeserver → **Disable key expiry**.
+- **Re-login must restate non-default flags.** A bare `tailscale up` on
+  this node errors out rather than silently reverting settings; the
+  settings-preserving form is `tailscale up --ssh` (Tailscale SSH is
+  enabled here). Tailscale prints the correct command in the error.
+- **Only the browser approval is human-only.** `tailscale up` prints a
+  `https://login.tailscale.com/a/…` URL — a public URL, reachable while
+  the node is still offline. An agent can run the command and hand the URL
+  over; a human has to approve it. Note that Claude Code running *on* the
+  Mac Studio is the out-of-band way in when the tailnet is down, since its
+  connection does not traverse the tailnet.
+
+### Cloud build (fallback, spends quota)
+
 ```sh
 eas build --profile development --platform ios --no-wait
 ```
 
-(~15–25 min on EAS servers.) Rebuilds are only needed when **native**
-dependencies change; JS-only changes never need a rebuild.
+(~15–25 min on EAS servers.) Install from the build page on expo.dev
+(Install button, over-the-air). **Use Chrome on iOS, not Safari** — Safari
+showed the "Check your Home screen" toast but silently never installed; the
+same page in Chrome worked. That failure was specific to Expo's JS-driven
+install page; the plain `<a href>` on the Tailscale page works in both
+browsers.
 
-Install from the build page on expo.dev (Install button, over-the-air).
-**Use Chrome on iOS, not Safari** — Safari showed the "Check your Home
-screen" toast but silently never installed; the same page in Chrome worked.
-If installation still fails silently, check whether an App Store/TestFlight
-copy of the app is installed (same bundle ID, different signing) and delete
-it first.
+### If an install fails silently either way
+
+Failures are mostly silent or a generic "Unable to install". In order of
+likelihood: an App Store/TestFlight copy of the app is installed (same
+bundle ID, different signing) — delete it first; the phone's Tailscale VPN
+is off; the device's UDID is not in the ad hoc profile (it is baked in at
+build time). The real error is in the device console (Console.app with the
+phone selected): look for `itunesstored`/`appstored` lines such as
+`profile not valid:` or `rejecting upgrade`.
 
 ## Connecting the dev client to a remote dev server
 
