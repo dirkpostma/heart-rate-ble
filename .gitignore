@@ -46,3 +46,6 @@ yarn-error.*
 
 # local signing credentials — never commit
 credentials.json
+
+# local build output (eas build --local --output)
+/build/
