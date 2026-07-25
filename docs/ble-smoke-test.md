@@ -349,4 +349,5 @@ baseline's pre-navigation diff is gone) and connects near-instantly.
 Follow-ups for the next TestFlight/internal-dist build (embedded bundle — the
 paths a dev client cannot exercise): characterize 17 + 24 (#117/#47), verify 7
 and 23, and check whether the stuck "waiting for Bluetooth" relaunch state
-(step 17 note) reproduces outside the dev client.
+(step 17 note) reproduces outside the dev client. Tracked in
+[#119](https://github.com/dirkpostma/heart-rate-ble/issues/119).
