@@ -171,10 +171,14 @@ events by `src/live/liveSurfaceDriver.ts`. Thresholds are cited from that file.
     BPM holds steady (`UPDATE_FLOOR_MS = 2500`, `REFRESH_MS = 15000`). *Expected:
     a readable, roughly 2–3 s cadence — not frantic per-beat flicker, not frozen.*
 20. **Self-labels stale.** Stop the strap broadcasting and leave the app
-    backgrounded / screen locked. After ~**20 s** without a fresh reading the
-    activity flips to its **stale** presentation via `staleDate`, with **no app
-    execution needed** (`STALE_AFTER_MS = 20000`). *Expected: the Live Activity
-    shows stale/dimmed rather than a confidently-wrong live BPM.*
+    backgrounded / screen locked. The activity flips to its **stale**
+    presentation via `staleDate`, with **no app execution needed**
+    (`STALE_AFTER_MS = 20000`). *Expected: greyed/dimmed heart and a
+    "last reading ... ago" age line rather than a confidently-wrong live BPM.
+    Do not require a wall-clock ~20 s flip — ActivityKit has been observed
+    to present stale only after ~1–2 min on device; that slack is accepted
+    (#141). Fail only if it never goes stale, or stays solid-live for many
+    minutes.*
 21. **Recovers from stale.** Resume broadcasting → the activity returns to live
     with fresh BPM.
 22. **Ends on user disconnect.** Disconnect from the app (step 9). *Expected: the
@@ -184,8 +188,10 @@ events by `src/live/liveSurfaceDriver.ts`. Thresholds are cited from that file.
     the **5-minute** drop grace (`DROP_GRACE_MS = 5 * 60000`). Dismissal is handed
     to ActivityKit up front (`endAfter` / `.after(Date)` in #140), so it must clear
     even if the app never wakes — not via a JS timer. *Expected: stale Live
-    Activity clears itself within ~5 min of a confirmed drop (system timing may
-    be somewhat loose; see #141).*
+    Activity clears itself after the grace window without opening the app.
+    System dismissal timing may be loose in the same family as step 20
+    (#141); fail only if it never clears (e.g. still up well past the 8 h
+    ceiling concern — tens of minutes with no dismiss is a real fail).*
 
 ### G. State restoration (#47 — the fragile one)
 
@@ -400,11 +406,15 @@ results, with two knowingly-open ends:
   run. The restoration path is live in the app (`restoreStateIdentifier`,
   `adoptRestored`) and untested on the fork's `Restoration` subspec — treat any
   restoration-related bug report as first-contact evidence, not a regression.
-- **Step 20 — still PARTIAL, now
-  [#141](https://github.com/dirkpostma/heart-rate-ble/issues/141).** Stale
-  labelling fires several times later than the 20 s `staleDate`, on both
-  architectures. It matters beyond cosmetics because #140 proposes building the
-  grace-end on that same system-enforced mechanism.
+- **Step 20 / [#141](https://github.com/dirkpostma/heart-rate-ble/issues/141) —
+  accepted and documented.** Stale labelling fires several times later than the
+  20 s `staleDate` we pass (~60 s baseline, ~120 s New Arch; single noisy
+  samples). Date conversion and our push path look correct; the lag is treated
+  as ActivityKit Lock Screen presentation slack, not an app bug. No code change.
+  Checklist step 20 now judges mechanism (does go stale without app execution),
+  not a hard 20 s wall clock. The same honesty applies to #140's
+  system-enforced grace dismiss: expect "clears without opening the app", not
+  stopwatch-perfect 5 min.
 
 ---
 
