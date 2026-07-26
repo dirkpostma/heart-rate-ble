@@ -5,6 +5,7 @@ interface LiveActivityNativeModule {
   start(deviceName: string, bpm: number, timestampMs: number, staleDateMs: number): Promise<void>;
   update(bpm: number, timestampMs: number, staleDateMs: number): Promise<void>;
   end(): Promise<void>;
+  endAfter(dismissAtMs: number): Promise<void>;
 }
 
 // null on Android and anywhere else the native module isn't compiled in;
@@ -28,5 +29,9 @@ export const liveActivity = {
   },
   async end(): Promise<void> {
     await native?.end();
+  },
+  /** End now; system keeps the final content visible until dismissAtMs (#140). */
+  async endAfter(dismissAtMs: number): Promise<void> {
+    await native?.endAfter(dismissAtMs);
   },
 };
