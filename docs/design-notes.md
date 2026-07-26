@@ -109,8 +109,13 @@ its first await), and a system kill is survived via
 `restoreStateIdentifier` — the store *adopts* the restored link instead
 of connecting. Known honest gaps: force-quit and Bluetooth-off are
 unrecoverable by design, ActivityKit caps an activity at 8 h, and
-`staleDate` / `.after` dismissal timing is system-enforced (observed
-lateness tracked in #141).
+`staleDate` / `.after` dismissal timing is system-enforced. We pass
+`STALE_AFTER_MS = 20s` (and a 5 min grace dismiss via `endAfter`); iOS
+has been observed to show the stale presentation ~60–120 s later and
+may similarly loosen dismissal — accepted as platform slack, not an app
+defect (#141 closed as documented). No JS workaround: a timer would
+freeze while suspended, which is the problem `staleDate` exists to
+avoid.
 
 ## Scope
 

@@ -11,6 +11,9 @@ export const UPDATE_FLOOR_MS = 2500;
 export const REFRESH_MS = 15000;
 // Without a fresh reading for this long the activity self-labels stale —
 // the system flips it via staleDate, no app execution needed (#48).
+// The value we hand ActivityKit is ~20 s; Lock Screen presentation has been
+// observed several times later (~60–120 s). Accepted system slack, not an
+// app bug — see #141 and docs/design-notes.md.
 export const STALE_AFTER_MS = 20000;
 // Unexpected drop: the stale activity stays up this long waiting for the
 // sensor to return, then ends and disappears (#48).

@@ -170,7 +170,11 @@ From Apple's [Displaying live data with Live Activities](https://developer.apple
 - **staleDate:** at the stale date the activity's `activityState` becomes `.stale` and
   `isStale` flips true, letting the UI render "data is old" instead of a frozen BPM.
   Ideal here: advance `staleDate` ~15–30 s on every update; if the sensor drops and
-  reconnect stalls, the Live Activity self-labels as stale.
+  reconnect stalls, the Live Activity self-labels as stale. **On-device note (#141):**
+  the value we pass is honoured eventually, but Lock Screen stale *presentation*
+  has been observed ~60–120 s after a 20 s `staleDate` (both architectures).
+  Accepted as system slack — do not build product promises on stopwatch-accurate
+  `staleDate` or `.after` dismissal.
 - **Screen off / Always-On:** the Live Activity UI is rendered by the widget extension
   when displayed; with the screen fully off nothing renders (updates still mutate
   state — the latest one shows on next wake). On Always-On displays the system shows it
