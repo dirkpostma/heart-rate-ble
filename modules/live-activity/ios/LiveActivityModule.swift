@@ -44,6 +44,15 @@ public class LiveActivityModule: Module {
         await activity.end(activity.content, dismissalPolicy: .immediate)
       }
     }
+
+    // End now but ask the system to keep the final content visible until
+    // dismissAtMs. Survives app suspension — JS timers do not (#140).
+    AsyncFunction("endAfter") { (dismissAtMs: Double) in
+      let dismissAt = Self.date(ms: dismissAtMs)
+      for activity in Activity<HeartRateAttributes>.activities {
+        await activity.end(activity.content, dismissalPolicy: .after(dismissAt))
+      }
+    }
   }
 
   private static func state(bpm: Int, timestampMs: Double) -> HeartRateAttributes.ContentState {

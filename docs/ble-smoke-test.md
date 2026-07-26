@@ -181,8 +181,11 @@ events by `src/live/liveSurfaceDriver.ts`. Thresholds are cited from that file.
     Live Activity ends and is removed promptly (`endSession`).*
 23. **Drop grace then auto-end.** Force an unexpected drop (step 12) and leave it.
     The activity stays (stale) waiting for the sensor, then ends on its own after
-    the **5-minute** drop grace (`DROP_GRACE_MS = 5 * 60000`). *Expected: stale
-    Live Activity clears itself within ~5 min of a confirmed drop.*
+    the **5-minute** drop grace (`DROP_GRACE_MS = 5 * 60000`). Dismissal is handed
+    to ActivityKit up front (`endAfter` / `.after(Date)` in #140), so it must clear
+    even if the app never wakes — not via a JS timer. *Expected: stale Live
+    Activity clears itself within ~5 min of a confirmed drop (system timing may
+    be somewhat loose; see #141).*
 
 ### G. State restoration (#47 — the fragile one)
 

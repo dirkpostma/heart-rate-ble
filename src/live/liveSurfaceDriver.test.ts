@@ -57,11 +57,12 @@ class TestMonitor implements HeartRateMonitor {
 }
 
 interface ActivityCall {
-  kind: 'start' | 'update' | 'end';
+  kind: 'start' | 'update' | 'end' | 'endAfter';
   deviceName?: string;
   bpm?: number;
   timestampMs?: number;
   staleDateMs?: number;
+  dismissAtMs?: number;
 }
 
 class FakeActivity implements LiveActivitySurface {
@@ -74,6 +75,9 @@ class FakeActivity implements LiveActivitySurface {
   }
   async end() {
     this.calls.push({ kind: 'end' });
+  }
+  async endAfter(dismissAtMs: number) {
+    this.calls.push({ kind: 'endAfter', dismissAtMs });
   }
   ofKind(kind: ActivityCall['kind']): ActivityCall[] {
     return this.calls.filter((call) => call.kind === kind);
@@ -194,6 +198,9 @@ describe('attachLiveSurfaces', () => {
       await connectAndFirstSample(72);
 
       monitor.emitState('reconnecting');
+      // update → endAfter is async-chained; flush the microtask queue
+      await Promise.resolve();
+      await Promise.resolve();
 
       const updates = activity.ofKind('update');
       expect(updates).toHaveLength(1);
@@ -201,25 +208,42 @@ describe('attachLiveSurfaces', () => {
       expect(updates[0].staleDateMs).toBeLessThanOrEqual(Date.now());
       expect(widget.writes.at(-1)?.sessionState).toBe('stale');
       expect(activity.ofKind('end')).toHaveLength(0);
+      // Hand ActivityKit the dismiss date up front so iOS clears it without
+      // the app having to wake (#140).
+      expect(activity.ofKind('endAfter')).toEqual([
+        expect.objectContaining({ dismissAtMs: expect.any(Number) }),
+      ]);
+      const dismissAt = activity.ofKind('endAfter')[0].dismissAtMs!;
+      expect(dismissAt).toBeGreaterThan(Date.now());
+      expect(dismissAt).toBeLessThanOrEqual(Date.now() + DROP_GRACE_MS);
     });
 
     it('returns to live when the sensor comes back', async () => {
       await connectAndFirstSample(72);
       monitor.emitState('reconnecting');
+      await Promise.resolve();
+      await Promise.resolve();
 
       monitor.emitState('connected');
 
       expect(widget.writes.at(-1)?.sessionState).toBe('live');
       expect(activity.ofKind('end')).toHaveLength(0);
-      const lastUpdate = activity.ofKind('update').at(-1);
-      expect(lastUpdate?.staleDateMs).toBeGreaterThan(Date.now());
+      // Previous activity was ended with endAfter; recovery re-requests (#140).
+      expect(activity.ofKind('start')).toHaveLength(2);
+      const revived = activity.ofKind('start').at(-1);
+      expect(revived?.staleDateMs).toBeGreaterThan(Date.now());
     });
 
     it('ends the activity when the grace period runs out', async () => {
       await connectAndFirstSample(72);
       monitor.emitState('reconnecting');
       monitor.emitState('disconnected'); // monitor gave up; lost state (#30)
+      await Promise.resolve();
+      await Promise.resolve();
 
+      // Live Activity dismiss is scheduled immediately via endAfter; the
+      // JS timer only finishes the widget/session bookkeeping.
+      expect(activity.ofKind('endAfter')).toHaveLength(1);
       expect(activity.ofKind('end')).toHaveLength(0);
       jest.advanceTimersByTime(DROP_GRACE_MS);
 
@@ -230,9 +254,19 @@ describe('attachLiveSurfaces', () => {
     it('counts the grace period from the drop, not from the monitor giving up', async () => {
       await connectAndFirstSample(72);
       monitor.emitState('reconnecting');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const dismissAt = activity.ofKind('endAfter')[0].dismissAtMs!;
 
       jest.advanceTimersByTime(DROP_GRACE_MS / 2);
       monitor.emitState('disconnected');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Still a single endAfter, armed at the original drop.
+      expect(activity.ofKind('endAfter')).toHaveLength(1);
+      expect(activity.ofKind('endAfter')[0].dismissAtMs).toBe(dismissAt);
 
       jest.advanceTimersByTime(DROP_GRACE_MS / 2);
       expect(activity.ofKind('end')).toHaveLength(1);
@@ -241,6 +275,8 @@ describe('attachLiveSurfaces', () => {
     it('a reading that arrives mid-grace revives the session instead of ending it', async () => {
       await connectAndFirstSample(72);
       monitor.emitState('reconnecting');
+      await Promise.resolve();
+      await Promise.resolve();
 
       jest.advanceTimersByTime(UPDATE_FLOOR_MS * 2);
       monitor.emitState('connected');
@@ -249,12 +285,16 @@ describe('attachLiveSurfaces', () => {
       jest.advanceTimersByTime(DROP_GRACE_MS * 2);
       expect(activity.ofKind('end')).toHaveLength(0);
       expect(widget.writes.at(-1)?.sessionState).toBe('live');
+      // Fresh activity requested on revive; not left to a dangling endAfter only.
+      expect(activity.ofKind('start').length).toBeGreaterThanOrEqual(2);
     });
 
     it('leaving the lost state ends the session at once', async () => {
       await connectAndFirstSample(72);
       monitor.emitState('reconnecting');
       monitor.emitState('disconnected');
+      await Promise.resolve();
+      await Promise.resolve();
 
       store.getState().disconnect(); // "Back to devices"
 

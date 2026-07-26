@@ -44,6 +44,13 @@ export function createNativeSurfaces(): {
           console.warn('Live Activity end failed', cause);
         }
       },
+      async endAfter(dismissAtMs) {
+        try {
+          await liveActivity.endAfter(dismissAtMs);
+        } catch (cause) {
+          console.warn('Live Activity endAfter failed', cause);
+        }
+      },
     },
     widget: {
       write(reading: WidgetReading) {

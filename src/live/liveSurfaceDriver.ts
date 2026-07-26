@@ -21,6 +21,12 @@ export interface LiveActivitySurface {
   start(deviceName: string, bpm: number, timestampMs: number, staleDateMs: number): Promise<void>;
   update(bpm: number, timestampMs: number, staleDateMs: number): Promise<void>;
   end(): Promise<void>;
+  /**
+   * End the activity now but keep its final content on the Lock Screen until
+   * dismissAtMs. ActivityKit enforces this with no app execution (#140) —
+   * unlike a JS timer, which freezes while suspended.
+   */
+  endAfter(dismissAtMs: number): Promise<void>;
 }
 
 export type WidgetSessionState = 'live' | 'stale' | 'ended';
@@ -57,6 +63,9 @@ export function attachLiveSurfaces(
   let lastPushedBpm = 0;
   let graceDeadline: number | null = null;
   let graceTimer: ReturnType<typeof setTimeout> | null = null;
+  // Bumped when leaving stale (end / revive) so an in-flight goStale
+  // update→endAfter chain cannot dismiss after a newer decision (#140).
+  let staleEpoch = 0;
 
   function writeWidget(sessionState: WidgetSessionState, reload: boolean): void {
     if (!last) return;
@@ -82,6 +91,7 @@ export function attachLiveSurfaces(
   function endSession(): void {
     if (session === 'idle') return;
     session = 'idle';
+    staleEpoch += 1;
     clearGrace();
     void activity.end();
     writeWidget('ended', true);
@@ -96,26 +106,50 @@ export function attachLiveSurfaces(
     const now = Date.now();
     if (graceDeadline === null) {
       graceDeadline = now + DROP_GRACE_MS;
-      // Fires in the foreground; while suspended, JS timers freeze and the
-      // check re-runs on the next store event (a BLE wake) instead — a
-      // never-woken app leaves the activity stale until its 8 h ceiling.
+      // Widget / JS session cleanup still uses a timer + opportunistic check
+      // when we next run. The Live Activity itself is handed to ActivityKit
+      // below via endAfter — JS timers freeze while suspended and would
+      // otherwise leave it up until the 8 h ceiling (#140).
       graceTimer = setTimeout(checkGrace, DROP_GRACE_MS);
     }
-    // The drop is a known fact, not merely missing data: flip the surfaces
-    // to stale now instead of waiting out the staleDate.
-    if (last) void activity.update(last.bpm, last.timestampMs, now);
+    // The drop is a known fact, not merely missing data: flip to stale
+    // content, then end with a deferred dismissal so iOS removes it when
+    // the grace elapses even if the app never wakes.
+    const dismissAt = graceDeadline;
+    const epoch = staleEpoch;
+    void (async () => {
+      if (last) await activity.update(last.bpm, last.timestampMs, now);
+      if (epoch !== staleEpoch || session !== 'stale' || dismissAt === null) return;
+      await activity.endAfter(dismissAt);
+    })();
     writeWidget('stale', true);
   }
 
   function goLive(): void {
     if (session !== 'stale') return;
     session = 'live';
+    staleEpoch += 1;
     clearGrace();
-    pushUpdate(Date.now());
+    // goStale already ended the previous activity (still visible until its
+    // dismiss date). update() would no-op on an empty activities list —
+    // request a fresh one instead (#140).
+    if (last) {
+      const now = Date.now();
+      lastPushAt = now;
+      lastPushedBpm = last.bpm;
+      void activity.start(
+        last.deviceName,
+        last.bpm,
+        last.timestampMs,
+        last.timestampMs + STALE_AFTER_MS,
+      );
+    }
     writeWidget('live', true);
   }
 
   function checkGrace(): void {
+    // Live Activity dismissal is system-enforced via endAfter. This path
+    // only finishes the JS/widget session once grace has elapsed.
     if (session === 'stale' && graceDeadline !== null && Date.now() >= graceDeadline) {
       endSession();
     }

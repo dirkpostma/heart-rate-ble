@@ -90,6 +90,17 @@ every reading still reaches the widget's app group, but its timeline
 reloads only on session transitions — the age label ticks as
 relative-date text for free.
 
+The grace-end used to rely on a JS `setTimeout`, which freezes while the
+app is suspended. After background reconnect started waiting indefinitely
+(#117 fixed, #134 unblocked), a drop with the sensor gone left the
+activity up until ActivityKit's 8 h ceiling — nothing woke the app to run
+the timer (#140). The Live Activity path now hands iOS the dismiss date up
+front via `ActivityUIDismissalPolicy.after` (`endAfter` on the local
+module) at the moment of the drop; the system removes it when grace
+elapses with no app execution. Recovery mid-grace re-`request`s a fresh
+activity rather than updating the ended one. The JS timer remains only for
+widget/session bookkeeping when the app does run.
+
 Background BLE (researched in #47): `bluetooth-central` wakes the app per
 notification, so the stream outlives suspension while connected. Two
 timer traps got explicit fixes: a background drop hands iOS a single
@@ -97,9 +108,9 @@ timer traps got explicit fixes: a background drop hands iOS a single
 its first await), and a system kill is survived via
 `restoreStateIdentifier` — the store *adopts* the restored link instead
 of connecting. Known honest gaps: force-quit and Bluetooth-off are
-unrecoverable by design, ActivityKit caps an activity at 8 h, and a
-never-woken app can't end its activity early (the staleDate keeps the UI
-truthful meanwhile).
+unrecoverable by design, ActivityKit caps an activity at 8 h, and
+`staleDate` / `.after` dismissal timing is system-enforced (observed
+lateness tracked in #141).
 
 ## Scope
 
