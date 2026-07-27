@@ -1,10 +1,15 @@
-import { spacing } from '../ds';
+// Deliberately import-free. This module is the demo surface's pure geometry,
+// and the design-system tokens it used to read pulled the whole DS — and so
+// react-native — into anything that imported it, which made it unloadable
+// under the bare-node jest config (#167). The edge insets are now passed in
+// by the gesture layer, which imports react-native anyway.
 
-// Bottom inset keeps the default position clear of the Disconnect
-// button and version footer. Top must clear the iOS Notification Center
-// pull-down: with the 12 pt hitSlop a grab can start that far above the
-// dot, and at 16 pt the system gesture claimed the drag (#26).
-export const EDGE = { side: spacing.md, top: spacing.xl, bottom: 104 };
+/** Margins the surface keeps from each side of the frame. */
+export interface EdgeInsets {
+  side: number;
+  top: number;
+  bottom: number;
+}
 
 export type AnchorRow = 'top' | 'middle' | 'bottom';
 export type AnchorCol = 'left' | 'center' | 'right';
@@ -33,18 +38,19 @@ export function anchorPoint(
   { row, col }: Anchor,
   frame: Size,
   size: Size,
+  edge: EdgeInsets,
 ): { x: number; y: number } {
   const x =
     col === 'left'
-      ? EDGE.side
+      ? edge.side
       : col === 'right'
-        ? frame.width - size.width - EDGE.side
+        ? frame.width - size.width - edge.side
         : (frame.width - size.width) / 2;
   const y =
     row === 'top'
-      ? EDGE.top
+      ? edge.top
       : row === 'bottom'
-        ? frame.height - size.height - EDGE.bottom
+        ? frame.height - size.height - edge.bottom
         : (frame.height - size.height) / 2;
   return { x, y };
 }
@@ -60,11 +66,16 @@ export function scaleOrigin({ row, col }: Anchor, size: Size): { x: number; y: n
   return { x, y };
 }
 
-export function nearestAnchor(pos: { x: number; y: number }, frame: Size, size: Size): Anchor {
+export function nearestAnchor(
+  pos: { x: number; y: number },
+  frame: Size,
+  size: Size,
+  edge: EdgeInsets,
+): Anchor {
   let best = ANCHORS[0];
   let bestDistance = Infinity;
   for (const anchor of ANCHORS) {
-    const point = anchorPoint(anchor, frame, size);
+    const point = anchorPoint(anchor, frame, size, edge);
     const distance = (point.x - pos.x) ** 2 + (point.y - pos.y) ** 2;
     if (distance < bestDistance) {
       best = anchor;
