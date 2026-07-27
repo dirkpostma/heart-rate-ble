@@ -17,9 +17,11 @@ That migration also swapped the BLE dependency: dotintent's
 `react-native-ble-plx` has no SDK 57 / New Arch story, so the app ships
 `@sfourdrinier/react-native-ble-plx` — a community fork reviewed in
 [sfourdrinier-ble-plx-due-diligence.md](research/sfourdrinier-ble-plx-due-diligence.md).
-One workaround rides along: a config plugin strips `-fmodules
--fcxx-modules` from the fork's podspec, which otherwise embeds ~180 fmt
-symbols and fails the link. Its expiry is a bump to fork ≥ 3.9.2.
+That fork carried one trap until 3.9.2: its podspec compiled with
+`-fmodules -fcxx-modules`, under which clang emits ~180 *strong* fmt
+symbols into the pod and the link fails with duplicate symbols. A config
+plugin stripped the flags during prebuild until upstream removed them;
+the app now pins 3.9.2 and the plugin is gone (#169).
 
 ## One interface, two sensors
 
