@@ -3,6 +3,7 @@ import {
   DiscoveredDevice,
   HeartRateMonitor,
   HeartRateSample,
+  ScanListener,
   Unsubscribe,
 } from '../ble/HeartRateMonitor';
 import { createHeartRateStore, DEVICE_STALE_MS, HeartRateStore } from './heartRateStore';
@@ -25,11 +26,7 @@ class TestMonitor implements HeartRateMonitor {
   private sampleListeners = new Set<(sample: HeartRateSample) => void>();
   private stateListeners = new Set<(state: ConnectionState) => void>();
 
-  startScan(
-    onDevice: (device: DiscoveredDevice) => void,
-    onError: (error: Error) => void,
-    onScanStarted?: () => void,
-  ): void {
+  startScan({ onDevice, onError, onScanStarted }: ScanListener): void {
     this.scanning = true;
     this.onDevice = onDevice;
     this.onScanError = onError;
@@ -343,7 +340,7 @@ describe('createHeartRateStore', () => {
   // of connecting.
   describe('adopting a restored connection', () => {
     it('wires the monitor without a connect call and stops scanning', () => {
-      store.getState().adopt(GARMIN, monitor);
+      store.adopt(GARMIN, monitor);
 
       expect(store.getState().connectedDevice).toEqual(GARMIN);
       expect(store.getState().connectionState).toBe('connected');
@@ -355,7 +352,7 @@ describe('createHeartRateStore', () => {
     });
 
     it('disconnects an adopted connection like any other', () => {
-      store.getState().adopt(GARMIN, monitor);
+      store.adopt(GARMIN, monitor);
 
       store.getState().disconnect();
 
@@ -367,7 +364,7 @@ describe('createHeartRateStore', () => {
     it('yields to a session already in progress', async () => {
       await connectTo(GARMIN);
 
-      store.getState().adopt({ id: 'other-1', name: 'Other', rssi: null }, monitor);
+      store.adopt({ id: 'other-1', name: 'Other', rssi: null }, monitor);
 
       expect(store.getState().connectedDevice).toEqual(GARMIN);
     });

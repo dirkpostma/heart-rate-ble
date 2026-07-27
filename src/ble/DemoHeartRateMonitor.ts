@@ -3,6 +3,7 @@ import {
   DiscoveredDevice,
   HeartRateMonitor,
   HeartRateSample,
+  ScanListener,
   Unsubscribe,
 } from './HeartRateMonitor';
 
@@ -89,10 +90,7 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
   private deviceListeners = new Set<() => void>();
   private snapshot: DemoDeviceInfo[] = [];
 
-  startScan(
-    onDevice: (device: DiscoveredDevice) => void,
-    _onError: (error: Error) => void,
-  ): void {
+  startScan({ onDevice }: ScanListener): void {
     this.onDevice = onDevice;
     this.devices.forEach((device) => this.emitAdvertisement(device));
     this.syncAdvertiseTimer();

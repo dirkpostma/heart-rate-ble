@@ -19,6 +19,7 @@ export type ScannedDevice = DiscoveredDevice & {
   stale: boolean;
 };
 
+/** State and actions a screen can invoke — what useHeartRate binds. */
 export interface HeartRateState {
   devices: ScannedDevice[];
   scanning: boolean;
@@ -37,20 +38,27 @@ export interface HeartRateState {
   sample: HeartRateSample | null;
   setScanEnabled: (enabled: boolean) => void;
   connect: (device: DiscoveredDevice) => Promise<void>;
+  disconnect: () => void;
+  rescan: () => void;
+}
+
+/**
+ * Wiring plumbing only the composition root (and tests) can supply — no
+ * screen could ever construct a HeartRateMonitor to pass to `adopt`, or has
+ * a reason to call `destroy`.
+ */
+export interface HeartRateComposition {
   /**
    * Takes over a connection that already exists natively — iOS BLE state
    * restoration relaunches the app with the sensor still attached, so
    * there is nothing to connect to, only listeners to wire up.
    */
   adopt: (device: DiscoveredDevice, source: HeartRateMonitor) => void;
-  disconnect: () => void;
-  rescan: () => void;
-}
-
-export type HeartRateStore = StoreApi<HeartRateState> & {
   /** Stops timers, scans and any live connection. For test teardown. */
   destroy: () => void;
-};
+}
+
+export type HeartRateStore = StoreApi<HeartRateState> & HeartRateComposition;
 
 /**
  * Drives the whole two-screen flow against any set of HeartRateMonitor
@@ -84,7 +92,6 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
     sample: null,
     setScanEnabled,
     connect,
-    adopt,
     disconnect,
     rescan,
   }));
@@ -108,8 +115,8 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
     store.setState({ devices: [], error: null, scanning: true });
     staleTimer ??= setInterval(tickStale, STALE_CHECK_INTERVAL_MS);
     scanSources.forEach((source) =>
-      source.startScan(
-        (device) => {
+      source.startScan({
+        onDevice: (device) => {
           sourceOf.set(device.id, source);
           lastSeen[device.id] = Date.now();
           const seen: ScannedDevice = { ...device, stale: false };
@@ -122,16 +129,16 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
         // One source failing (e.g. BLE on a simulator) must not kill the
         // session for the others: the error is surfaced, scanning and the
         // staleness ticker keep running for the sources still alive.
-        (scanError) => {
+        onError: (scanError) => {
           store.setState({ error: scanError.message });
         },
         // A source that restarts its own scan (Bluetooth toggled back on,
         // #118) makes the radio-off error obsolete. `connectError` is not
         // touched — it must outlive scan restarts to ever be seen (#13).
-        () => {
+        onScanStarted: () => {
           store.setState({ error: null });
         },
-      ),
+      }),
     );
   }
 
@@ -262,5 +269,5 @@ export function createHeartRateStore(scanSources: HeartRateMonitor[]): HeartRate
   // starts scanning the moment the store exists.
   syncScan();
 
-  return Object.assign(store, { destroy });
+  return Object.assign(store, { adopt, destroy });
 }

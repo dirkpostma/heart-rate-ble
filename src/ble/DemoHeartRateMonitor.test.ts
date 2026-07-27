@@ -20,10 +20,10 @@ describe('DemoHeartRateMonitor', () => {
   });
 
   const startScan = () =>
-    monitor.startScan(
-      (device) => advertised.push(device),
-      () => {},
-    );
+    monitor.startScan({
+      onDevice: (device) => advertised.push(device),
+      onError: () => {},
+    });
 
   const connectTo = async (id: string) => {
     const connecting = monitor.connect(id);

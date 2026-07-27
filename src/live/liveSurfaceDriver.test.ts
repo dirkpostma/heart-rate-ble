@@ -3,6 +3,7 @@ import {
   DiscoveredDevice,
   HeartRateMonitor,
   HeartRateSample,
+  ScanListener,
   Unsubscribe,
 } from '../ble/HeartRateMonitor';
 import { createHeartRateStore, HeartRateStore } from '../store/heartRateStore';
@@ -24,7 +25,7 @@ class TestMonitor implements HeartRateMonitor {
   private sampleListeners = new Set<(sample: HeartRateSample) => void>();
   private stateListeners = new Set<(state: ConnectionState) => void>();
 
-  startScan(onDevice: (device: DiscoveredDevice) => void): void {
+  startScan({ onDevice }: ScanListener): void {
     this.onDevice = onDevice;
   }
   stopScan(): void {}

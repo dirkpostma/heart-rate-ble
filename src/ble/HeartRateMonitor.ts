@@ -19,6 +19,19 @@ export type ConnectionState =
 
 export type Unsubscribe = () => void;
 
+export interface ScanListener {
+  onDevice: (device: DiscoveredDevice) => void;
+  onError: (error: Error) => void;
+  /**
+   * Fires each time the source's scan actually starts — including a
+   * restart after Bluetooth was toggled off and back on, the moment a
+   * previously reported radio-off error becomes obsolete (#118). Optional:
+   * one implementation's failure mode (the BLE radio-toggle quirk), not
+   * every source's concern — the demo monitor never emits it.
+   */
+  onScanStarted?: () => void;
+}
+
 /**
  * A source of heart-rate data. Two implementations exist: the real BLE
  * monitor (Garmin & friends) and a demo one whose virtual devices
@@ -26,16 +39,7 @@ export type Unsubscribe = () => void;
  * rules included — runs identically against either.
  */
 export interface HeartRateMonitor {
-  startScan(
-    onDevice: (device: DiscoveredDevice) => void,
-    onError: (error: Error) => void,
-    /**
-     * Fires each time the source's scan actually starts — including a
-     * restart after Bluetooth was toggled off and back on, the moment a
-     * previously reported radio-off error becomes obsolete (#118).
-     */
-    onScanStarted?: () => void,
-  ): void;
+  startScan(listener: ScanListener): void;
   stopScan(): void;
   connect(deviceId: string): Promise<void>;
   disconnect(): Promise<void>;
