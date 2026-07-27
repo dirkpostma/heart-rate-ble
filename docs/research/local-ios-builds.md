@@ -1,5 +1,7 @@
 # Research: local iOS builds — `eas build --local` vs raw `xcodebuild` (SDK 57)
 
+> **Status:** Current · **Date:** 2026-07-25 · **Issue:** [#122](https://github.com/dirkpostma/heart-rate-ble/issues/122)
+
 Resolves wayfinder ticket #122 (map #121). Researched 2026-07-25 against primary
 sources (docs.expo.dev for the installed eas-cli 16.28.0 / SDK 57, the expo/eas-cli
 source, Apple docs and `xcodebuild -help` on Xcode 26.5) plus read-only probes of

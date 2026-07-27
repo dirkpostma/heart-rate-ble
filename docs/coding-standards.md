@@ -114,6 +114,33 @@ CI runs `npm run verify` and blocks merge. The native rungs are local-only and
 enforced by this contract rather than by a bot — if you touch native, run them
 and say so in the PR.
 
+## Docs
+
+Locked by [#153](https://github.com/dirkpostma/heart-rate-ble/issues/153).
+
+**A research doc is a dated snapshot and never gets edited into currency.** It
+records what was true when it was written. When it stops being true, change its
+status header — don't rewrite the findings.
+
+Every file in `docs/research/` opens with:
+
+```markdown
+> **Status:** Current · **Date:** 2026-07-26 · **Issue:** [#148](...)
+```
+
+`Status` is **Current**, **Evergreen** (protocol- or spec-level, doesn't age),
+or **Superseded** — and a superseded doc says what replaced it and why it's
+kept.
+
+Operational and conceptual docs (`dev-client-testing.md`,
+`release-operations.md`, `ble-smoke-test.md`, `design-notes.md`, this file)
+carry no status header: they are maintained current by definition. The rule
+there is the one `ble-smoke-test.md` already states — **if the code and the doc
+disagree, the code wins; fix the doc in the same PR.**
+
+Recorded test runs and other observations are history: append a new section
+rather than overwriting what was observed.
+
 ## Process
 
 All changes go through a branch and a PR, docs included — never a direct push to

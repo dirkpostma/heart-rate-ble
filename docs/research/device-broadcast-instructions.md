@@ -1,5 +1,7 @@
 # Device Broadcast Instructions — Making Devices Advertise BLE Heart Rate
 
+> **Status:** Current · **Date:** 2026-07-26 · **Issue:** [#68](https://github.com/dirkpostma/heart-rate-ble/issues/68)
+
 Research for issue #68 (map #67).
 
 How to make each covered device broadcast heart rate over the standard BLE Heart

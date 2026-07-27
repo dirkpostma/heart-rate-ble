@@ -11,14 +11,21 @@ project uses a **dev client**: Expo's tooling and update pipeline, with
 would have worked too, but would surrender EAS builds and over-the-air
 updates, both of which earned their keep (see Distribution).
 
-Two version pins are load-bearing: **SDK 54** (the ble-plx config plugin
-breaks on SDK 57) and **new architecture disabled** (ble-plx crashes
-Release builds on new arch — dotintent/react-native-ble-plx#1278).
+The project runs **SDK 57 / React Native 0.86 with the New Architecture
+on** (migrated in [#120](https://github.com/dirkpostma/heart-rate-ble/pull/120)).
+That migration also swapped the BLE dependency: dotintent's
+`react-native-ble-plx` has no SDK 57 / New Arch story, so the app ships
+`@sfourdrinier/react-native-ble-plx` — a community fork reviewed in
+[sfourdrinier-ble-plx-due-diligence.md](research/sfourdrinier-ble-plx-due-diligence.md).
+One workaround rides along: a config plugin strips `-fmodules
+-fcxx-modules` from the fork's podspec, which otherwise embeds ~180 fmt
+symbols and fails the link. Its expiry is a bump to fork ≥ 3.9.2.
 
 ## One interface, two sensors
 
-Everything BLE hides behind a four-method `HeartRateMonitor` interface:
-scan, connect, samples, connection state. The real implementation wraps
+Everything BLE hides behind a six-method `HeartRateMonitor` interface:
+start/stop scan, connect, disconnect, samples, connection state. The
+real implementation wraps
 ble-plx; a `DemoHeartRateMonitor` *is the product's demo mode* — summoned
 virtual devices named after their profile ("Demo Workout n") that advertise at ~1 Hz with random-walk
 RSSI and stream synthetic BPM, so every store rule (staleness included)
@@ -32,7 +39,7 @@ that inject a hand-driven monitor instead of mocking modules.
 
 All app state — the device list, scan lifecycle, connection, samples —
 lives in a framework-free store built by a factory
-(`createHeartRateStore(monitorFor, scanSources)`); screens subscribe
+(`createHeartRateStore(scanSources)`); screens subscribe
 through a thin selector hook. The state started life in a React hook, and
 the timing rules kept accumulating: this app's hardest bugs were *time*
 bugs, and effect dependencies are a poor home for them. The migration
@@ -47,23 +54,35 @@ made scanning feel random (a real defect found in device testing).
 
 A sensor that stops broadcasting sends no goodbye — neither in
 advertisements nor, with Garmin's broadcast mode, over the link. Absence
-of data is the only signal, so two staleness rules exist:
+of data is the only signal, so three staleness rules exist, each with its
+own name so a grep for "the stale threshold" can't hit the wrong one
+([#150](https://github.com/dirkpostma/heart-rate-ble/issues/150)):
 
-- **Scan list, 3 s**: a sensor unheard from greys out and revives on its
-  next advertisement. 2 s flickered — iOS duty-cycles its scanning and
-  produces occasional 1 s+ gaps even while a sensor broadcasts steadily.
-- **Live screen, 5 s**: a connected-but-silent sensor shows
-  "Connected — no signal" instead of a frozen, healthy-looking number
-  (another device-testing find: the watch can stop sending without
-  dropping the link).
+- **`DEVICE_STALE_MS`, 3 s** (scan list, `store/heartRateStore.ts`): a
+  sensor unheard from greys out and revives on its next advertisement.
+  2 s flickered — iOS duty-cycles its scanning and produces occasional
+  1 s+ gaps even while a sensor broadcasts steadily.
+- **`SIGNAL_STALE_MS`, 5 s** (live screen, `store/signalPresence.ts`): a
+  connected-but-silent sensor shows "Connected — no signal" instead of a
+  frozen, healthy-looking number (another device-testing find: the watch
+  can stop sending without dropping the link).
+- **`ACTIVITY_STALE_AFTER_MS`, 20 s** (Live Activity,
+  `live/liveSurfaceDriver.ts`): the `staleDate` handed to ActivityKit,
+  after which the system renders the activity stale with no app
+  execution.
 
-Different failure modes, different costs of a false positive — hence two
-thresholds, both unit-tested.
+Different failure modes, different costs of a false positive — hence
+three thresholds, all unit-tested. Two of them shared the name
+`STALE_AFTER_MS` until #150 split them.
 
 ## Distribution: TestFlight + over-the-air updates
 
-Builds go through EAS to TestFlight (ad-hoc cable installs lose to a
-7-day free-signing expiry and needing the Mac). JS-only changes ship as
+Builds are made **locally** with `eas build --local` on the Mac Studio and
+uploaded to TestFlight with `eas submit` — no cloud build quota is spent,
+and no cable is ever needed. (EAS Submit is free on every plan; only Build
+and Update are billed.) The recipes and their traps are in
+[release-operations.md](release-operations.md); the no-cable dev-client
+loop is in [dev-client-testing.md](dev-client-testing.md). JS-only changes ship as
 **EAS Updates** on the production channel — during device verification,
 three defect fixes went out in hours without burning build quota or
 waiting on App Store processing. The version footer shows binary + OTA
@@ -110,7 +129,7 @@ its first await), and a system kill is survived via
 of connecting. Known honest gaps: force-quit and Bluetooth-off are
 unrecoverable by design, ActivityKit caps an activity at 8 h, and
 `staleDate` / `.after` dismissal timing is system-enforced. We pass
-`STALE_AFTER_MS = 20s` (and a 5 min grace dismiss via `endAfter`); iOS
+`ACTIVITY_STALE_AFTER_MS = 20s` (and a 5 min grace dismiss via `endAfter`); iOS
 has been observed to show the stale presentation ~60–120 s later and
 may similarly loosen dismissal — accepted as platform slack, not an app
 defect (#141 closed as documented). No JS workaround: a timer would
@@ -120,9 +139,15 @@ avoid.
 ## Scope
 
 The *core loop* only. Cut deliberately: picture-in-picture
-(needs a risky native module), charts/zones/history, Android verification,
-component tests and CI. Kept narrow instead: TypeScript throughout, the
-BLE seam, store unit tests, and end-to-end verification on real hardware.
+(needs a risky native module), charts/zones/history, and Android
+verification. Kept narrow instead: TypeScript throughout, the BLE seam,
+store unit tests, and end-to-end verification on real hardware.
+
+Component tests remain cut, now on purpose rather than by omission
+([#151](https://github.com/dirkpostma/heart-rate-ble/issues/151)): the
+screens were drained of logic in #150, so what's left in `.tsx` is
+markup. CI is no longer cut — `npm run verify` (typecheck, lint, tests)
+gates every PR ([#152](https://github.com/dirkpostma/heart-rate-ble/issues/152)).
 
 Known rough edge, tracked in #13: a failed connect attempt gives no user
 feedback — the error is cleared by the automatic scan restart.

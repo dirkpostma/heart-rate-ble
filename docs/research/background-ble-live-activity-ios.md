@@ -1,5 +1,7 @@
 # Research: background BLE + local Live Activity updates on iOS
 
+> **Status:** Current · **Date:** 2026-07-13 · **Issue:** [#47](https://github.com/dirkpostma/heart-rate-ble/issues/47)
+
 Resolves wayfinder ticket #47. Researched 2026-07-13 against primary sources (Apple
 Core Bluetooth / ActivityKit docs and DTS forum answers, dotintent/react-native-ble-plx
 source + issue tracker, Expo v54 docs, and the installed `react-native-ble-plx@3.5.1`
