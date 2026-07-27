@@ -1,0 +1,33 @@
+# The PR gate decided in #152: exactly `npm run verify` — the same command an
+# agent runs locally, so CI and local can't drift.
+#
+# Runs on ubuntu because the TypeScript stack needs nothing from macOS. The
+# native rungs (swiftc -typecheck, unsigned simulator xcodebuild — #155) stay
+# local-only: they need a macOS runner plus a CNG-generated `ios/` and a pod
+# install, which is minutes of billed setup to guard a directory most PRs never
+# touch. Contract instead: touching `targets/` or `modules/*/ios/` means running
+# `npm run verify:native` locally and saying so in the PR (see AGENTS.md).
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # `npm ci` over `npm install`: the lockfile is the contract, and a CI run
+      # that silently resolves different versions than the developer had is
+      # exactly the failure this gate exists to catch.
+      - run: npm ci
+
+      - run: npm run verify

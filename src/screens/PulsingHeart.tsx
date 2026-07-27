@@ -1,3 +1,8 @@
+/* eslint-disable react-hooks/refs -- `useRef(new Animated.Value(…)).current` is
+   the canonical React Native Animated idiom, and the rule is aimed at React
+   Compiler reactivity: an Animated.Value is a mutable handle that deliberately
+   does not participate in render, so reading it during render is correct here.
+   Disabled per-file rather than repo-wide so the rule still guards new code. */
 import { useEffect, useRef } from 'react';
 import { Animated, Easing } from 'react-native';
 import { Text, useTheme } from '../ds';
