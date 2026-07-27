@@ -1,5 +1,7 @@
 # BLE Heart Rate Profile & Garmin Broadcast Behavior
 
+> **Status:** Evergreen · **Date:** 2026-07-10 · **Issue:** [#2](https://github.com/dirkpostma/heart-rate-ble/issues/2)
+
 Research for issue #2. Everything an implementer needs to scan, connect, subscribe, and
 parse heart rate from a Garmin watch in "Broadcast Heart Rate" mode, iOS-first, using
 `react-native-ble-plx`.

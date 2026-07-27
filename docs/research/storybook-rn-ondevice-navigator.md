@@ -1,5 +1,7 @@
 # Research: `@storybook/react-native` v9 on-device story navigator — how it opens, and why it's unreachable when mounted full-screen on iOS
 
+> **Status:** Current · **Date:** 2026-07-23 · **Issue:** [#100](https://github.com/dirkpostma/heart-rate-ble/issues/100)
+
 Researched 2026-07-23 against primary sources only: the installed
 `@storybook/react-native@9.1.4` source shipped in this repo's
 `node_modules` (the exact 9.1.4 code), the official

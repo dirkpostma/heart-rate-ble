@@ -1,10 +1,12 @@
 # BLE device smoke test
 
-The manual checklist that defines **"no BLE regression."** Resolves wayfinder
-task [#61](https://github.com/dirkpostma/heart-rate-ble/issues/61); the
-regression reference for the fork + New-Architecture migration
+The manual checklist that defines **"no BLE regression."** Originally written
+for wayfinder task [#61](https://github.com/dirkpostma/heart-rate-ble/issues/61)
+as the regression reference for the fork + New-Architecture migration
 ([#58](https://github.com/dirkpostma/heart-rate-ble/issues/58) /
-[#114](https://github.com/dirkpostma/heart-rate-ble/issues/114)).
+[#114](https://github.com/dirkpostma/heart-rate-ble/issues/114), both now
+closed). It outlived that migration: this is the standing checklist for any
+change that could touch the hardware path.
 
 BLE can only be exercised on a **physical iPhone with a real heart-rate strap**
 — no simulator, no CI. Run the whole list end to end and record PASS / FAIL /
@@ -12,13 +14,17 @@ N/A per step in the results table. A step's expected behaviour is grounded in
 the current app code, cited inline (`src/…`); if the code and this doc disagree,
 the code wins — fix the doc in the same PR.
 
-## Why a baseline matters
+## What the values below describe
 
 The values below (staleness thresholds, reconnect counts, Live Activity timing)
-are what **dotintent `react-native-ble-plx` 3.5.1 on the legacy architecture**
-does today. Both migration PRs re-run this exact list against
-`@sfourdrinier/react-native-ble-plx` 3.8.x on the New Architecture and must
-match the baseline column. A green run here is the gate for #114.
+describe the **shipping** app: `@sfourdrinier/react-native-ble-plx` 3.8.4 on
+the New Architecture, Expo SDK 57 / RN 0.86.
+
+The migration this list was written to guard is done — it completed in
+[#120](https://github.com/dirkpostma/heart-rate-ble/pull/120) and #114 is
+closed. The "baseline" column therefore no longer means "what dotintent 3.5.1
+did"; read it as the expected behaviour, and treat a deviation as a
+regression in whatever the current change is.
 
 ## Equipment & setup
 
@@ -35,7 +41,11 @@ match the baseline column. A green run here is the gate for #114.
   build in the results header.
 - Wear the strap / have a real pulse so BPM values are non-zero and change.
 
-## Build under test (fill in)
+## Build under test — pre-migration baseline run
+
+Historical record of the 2026-07-24 run, kept because the results table below
+is its output. **A new run copies this block, fills it in for the build under
+test, and appends its own results section** — it does not overwrite this one.
 
 | Field | Value |
 |---|---|
@@ -95,7 +105,7 @@ fragile feature.
    silent while the BLE link stays open). After **5 s** of silence the state
    changes to **"Connected — no signal"** and shows **"Signal lost — is the watch
    still broadcasting heart rate?"**; the BPM stops updating rather than freezing
-   a stale number as if live (`STALE_AFTER_MS = 5000`, `LiveScreen.tsx`).
+   a stale number as if live (`SIGNAL_STALE_MS = 5000`, `store/signalPresence.ts`).
    *Expected: 5 s → "Connected — no signal".* Resume broadcasting → returns to
    live BPM.
 
@@ -173,7 +183,7 @@ events by `src/live/liveSurfaceDriver.ts`. Thresholds are cited from that file.
 20. **Self-labels stale.** Stop the strap broadcasting and leave the app
     backgrounded / screen locked. The activity flips to its **stale**
     presentation via `staleDate`, with **no app execution needed**
-    (`STALE_AFTER_MS = 20000`). *Expected: greyed/dimmed heart and a
+    (`ACTIVITY_STALE_AFTER_MS = 20000`). *Expected: greyed/dimmed heart and a
     "last reading ... ago" age line rather than a confidently-wrong live BPM.
     Do not require a wall-clock ~20 s flip — ActivityKit has been observed
     to present stale only after ~1–2 min on device; that slack is accepted
@@ -227,8 +237,10 @@ comment). Record current behaviour precisely so the migration has a reference.
 
 ## Baseline results
 
-Record the run against the current `main` build. `dotintent 3.5.1 / legacy arch`
-is the reference every migration PR compares against.
+The 2026-07-24 run on `dotintent 3.5.1 / legacy arch`, recorded before the
+SDK 57 + fork migration. Kept as the historical comparison point; the shipping
+stack is now `@sfourdrinier 3.8.4` on the New Architecture. Do not edit these
+observations — append a new results section for a new run.
 
 | # | Step | Result (PASS / FAIL / N/A) | Notes / observed values |
 |---|---|---|---|
@@ -251,7 +263,7 @@ is the reference every migration PR compares against.
 | 17 | Background drop → pending reconnect | **FAIL** | Backgrounded/locked, toggled watch **Bluetooth off** then on (tried ~3 s and ~60 s off) — a real *link drop*, distinct from stopping broadcast (step 20). On reopening the app the state was **"Connection lost"** — no auto-resume. The background pending-connect path (`handleDrop` `AppState !== 'active'` branch) did not recover the session. **Baseline regression reference** — the migration must at least match, ideally fix, this. Tracked in #117. |
 | 18 | Live Activity starts on first reading | PASS | Confirmed during step 15 — Live Activity appeared on connect showing the 970 name + real BPM (no placeholder observed). |
 | 19 | Live Activity updates coalesced (~2.5 s / 15 s) | PASS | On Lock Screen, BPM updates at a calm readable cadence (~2–3 s) — not per-beat flicker, not frozen. |
-| 20 | Live Activity self-labels stale (~20 s) | PARTIAL | Does self-label stale, but **much slower than the ~20 s** the code implies (`STALE_AFTER_MS = 20000`). At ~20 s it still showed a solid "58 bpm" + red heart (looked live). By ~1 min it flipped correctly: heart greyed/dimmed, label "66 bpm · last reading 1 min, 4 secs ago". So the stale mechanism works but the timing is off — investigate whether iOS coalesces the `staleDate` update while suspended, or the update carrying the new staleDate isn't sent. **Baseline regression reference.** |
+| 20 | Live Activity self-labels stale (~20 s) | PARTIAL | Does self-label stale, but **much slower than the ~20 s** the code implies (`ACTIVITY_STALE_AFTER_MS = 20000`). At ~20 s it still showed a solid "58 bpm" + red heart (looked live). By ~1 min it flipped correctly: heart greyed/dimmed, label "66 bpm · last reading 1 min, 4 secs ago". So the stale mechanism works but the timing is off — investigate whether iOS coalesces the `staleDate` update while suspended, or the update carrying the new staleDate isn't sent. **Baseline regression reference.** |
 | 21 | Live Activity recovers from stale | PASS | Resuming broadcast returns the Live Activity to live — solid red heart, fresh BPM updating. |
 | 22 | Live Activity ends on disconnect | PASS | Tapping Disconnect ends the Live Activity promptly — gone from the Lock Screen. |
 | 23 | Live Activity drop grace → auto-end (~5 min) | PASS (late) | Stale Live Activity auto-cleared on its own after a confirmed drop — but at **~7 min**, not the ~5 min target (`DROP_GRACE_MS = 5 min`). Consistent with step 20's late staleness: while suspended, JS timers freeze and the grace check only runs on the next iOS wake, so the end fires late. Functionally correct (it does clear, no manual action), timing is loose. |

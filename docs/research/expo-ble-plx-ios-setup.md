@@ -1,5 +1,9 @@
 # Research: Expo dev-client + react-native-ble-plx setup on iOS
 
+> **Status:** Superseded · **Date:** 2026-07-10 · **Issue:** [#3](https://github.com/dirkpostma/heart-rate-ble/issues/3)
+>
+> Superseded by the SDK 57 migration ([#120](https://github.com/dirkpostma/heart-rate-ble/pull/120)) — see [expo-sdk-57-upgrade.md](expo-sdk-57-upgrade.md) and [sfourdrinier-ble-plx-due-diligence.md](sfourdrinier-ble-plx-due-diligence.md). **This doc recommends pinning SDK 54 + `react-native-ble-plx` 3.5.1; the repo shipped the opposite.** Kept for the rationale trail only.
+
 Resolves wayfinder ticket #3. Researched 2026-07-10 against primary sources (Expo docs, dotintent/react-native-ble-plx repo + issue tracker).
 
 ## TL;DR (the known-good path)

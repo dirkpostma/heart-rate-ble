@@ -1,5 +1,7 @@
 # Research: Expo SDK 54 → 57 upgrade impact
 
+> **Status:** Current · **Date:** 2026-07-12 · **Issue:** [#36](https://github.com/dirkpostma/heart-rate-ble/issues/36)
+
 Resolves wayfinder ticket #36 (map #35). Researched 2026-07-12 against primary sources
 (expo.dev changelogs + docs, expo/expo repo, dotintent/react-native-ble-plx repo,
 facebook/react-native issue tracker, local toolchain probes).

@@ -1,5 +1,7 @@
 # Due diligence: `@sfourdrinier/react-native-ble-plx` fork
 
+> **Status:** Current · **Date:** 2026-07-17 · **Issue:** [#58](https://github.com/dirkpostma/heart-rate-ble/issues/58)
+
 Supply-chain review for the proposed BLE dependency swap (wayfinder map #58). Researched
 2026-07-17 against primary sources only: the npm registry (metadata + downloaded
 tarballs), full clones of `sfourdrinier/react-native-ble-plx`,

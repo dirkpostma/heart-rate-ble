@@ -1,5 +1,7 @@
 # Research: serving an ad hoc dev-client `.ipa` as a tap-to-install page over Tailscale HTTPS
 
+> **Status:** Current · **Date:** 2026-07-25 · **Issue:** [#123](https://github.com/dirkpostma/heart-rate-ble/issues/123)
+
 Researched 2026-07-25 (issue #123, part of #121) against primary sources
 only: Apple's Platform Deployment guide and Device Management schema docs
 (support.apple.com / developer.apple.com), Xcode Help, Apple Technical Note

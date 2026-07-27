@@ -1,5 +1,7 @@
 # Research: uploading a locally built .ipa to TestFlight (no fastlane, no Apple ID)
 
+> **Status:** Current · **Date:** 2026-07-25 · **Issue:** [#121](https://github.com/dirkpostma/heart-rate-ble/issues/121)
+
 Researched 2026-07-25 against primary sources: the Expo docs
 (docs.expo.dev) and eas-cli source (github.com/expo/eas-cli), Apple
 developer documentation and news (developer.apple.com), the local

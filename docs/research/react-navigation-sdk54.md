@@ -1,5 +1,9 @@
 # Research: React Navigation (native-stack) on Expo SDK 54
 
+> **Status:** Superseded · **Date:** 2026-07-20 · **Issue:** [#72](https://github.com/dirkpostma/heart-rate-ble/issues/72)
+>
+> Superseded by the SDK 57 migration ([#120](https://github.com/dirkpostma/heart-rate-ble/pull/120)). **Its pins are now anti-guidance** — SDK 54, `react-native-screens ~4.16.0`, New Architecture off; the repo is SDK 57 / RN 0.86 / New Arch on. Kept for the rationale trail only.
+
 Researched 2026-07-20 against primary sources: the versioned Expo docs
 (docs.expo.dev/versions/v54.0.0), the SDK 54 `bundledNativeModules.json`
 (github.com/expo/expo, `sdk-54` branch), the React Navigation 7 docs

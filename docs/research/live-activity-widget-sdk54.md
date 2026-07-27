@@ -1,5 +1,9 @@
 # Research: SDK 54 path to a Live Activity + home-screen widget
 
+> **Status:** Superseded · **Date:** 2026-07-13 · **Issue:** [#46](https://github.com/dirkpostma/heart-rate-ble/issues/46)
+>
+> Superseded by the SDK 57 migration ([#120](https://github.com/dirkpostma/heart-rate-ble/pull/120)). Its own TL;DR already answers “use SDK 57”; the SDK 54 path it maps out was never taken. Kept for the rationale trail only.
+
 Resolves wayfinder ticket #46 (map #45). Researched 2026-07-13 against primary sources
 (EvanBacon/expo-apple-targets, software-mansion-labs/expo-live-activity,
 bndkt/react-native-widget-extension, docs.expo.dev, npm registry probes).
