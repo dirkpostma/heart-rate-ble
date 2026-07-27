@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing } from 'react-native';
-import { Text } from '../ds';
-import { useTheme } from '../theme';
+import { Text, useTheme } from '../ds';
 
 interface Props {
   bpm: number | null;

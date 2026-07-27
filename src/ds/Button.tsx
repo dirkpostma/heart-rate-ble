@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { radius, spacing, useTheme } from '../theme';
+import { radius, spacing, useTheme } from './theme';
 import { Text } from './Text';
 
 export type ButtonVariant = 'primary' | 'outline' | 'link';

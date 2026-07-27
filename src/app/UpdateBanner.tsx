@@ -1,8 +1,7 @@
 import * as Updates from 'expo-updates';
 import { useEffect } from 'react';
 import { AppState, StyleSheet, View } from 'react-native';
-import { Button } from '../ds';
-import { spacing } from '../theme';
+import { Button, spacing } from '../ds';
 
 /**
  * Surfaces a pending OTA update as a tappable banner. expo-updates

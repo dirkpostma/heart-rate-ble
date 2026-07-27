@@ -6,7 +6,7 @@ import {
   type ColorRoles,
   type FontWeight,
   type TextVariant,
-} from '../theme';
+} from './theme';
 
 // Per-variant default color role. Decoupled from the metrics (issue #80): the
 // variant carries a default, a `color` prop overrides per site — so we never

@@ -1,14 +1,22 @@
 import { Buffer } from 'buffer';
-import { AppState } from 'react-native';
 import { BleManager, Device, State, Subscription } from '@sfourdrinier/react-native-ble-plx';
 import {
   ConnectionState,
   DiscoveredDevice,
   HeartRateMonitor,
   HeartRateSample,
+  ScanListener,
   Unsubscribe,
 } from './HeartRateMonitor';
 import { parseHeartRateMeasurement } from './parseHeartRateMeasurement';
+
+/** Reads whether the app is in the foreground. A thin seam over react-native's
+ * AppState so the reconnect backoff policy is drivable with a fake (audit
+ * 1.1 — the module used to read AppState directly, making it unreachable by
+ * any test). */
+export interface AppStateReader {
+  isActive(): boolean;
+}
 
 const HEART_RATE_SERVICE = '0000180d-0000-1000-8000-00805f9b34fb';
 const HEART_RATE_MEASUREMENT = '00002a37-0000-1000-8000-00805f9b34fb';
@@ -22,13 +30,33 @@ const RESTORE_STATE_ID = 'dev.dirkpostma.heartrateble.restore';
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Builds the production monitor: a BleManager wired for iOS state
+ * restoration whose restore callback feeds adoptRestored. The manager and
+ * the monitor reference each other, so this factory owns that two-step
+ * construction; the constructor itself stays injection-only for tests
+ * (audit 1.1). Restoration events replay asynchronously from native, so
+ * the callback can never fire before the assignment below it.
+ */
+export function createBleHeartRateMonitor(appState: AppStateReader): BleHeartRateMonitor {
+  let monitor: BleHeartRateMonitor | null = null;
+  const manager = new BleManager({
+    restoreStateIdentifier: RESTORE_STATE_ID,
+    restoreStateFunction: (restoredState) => {
+      const peripheral = restoredState?.connectedPeripherals[0];
+      if (peripheral) void monitor?.adoptRestored(peripheral);
+    },
+  });
+  monitor = new BleHeartRateMonitor(manager, appState);
+  return monitor;
+}
+
+/**
  * Real BLE heart-rate source via @sfourdrinier/react-native-ble-plx. Garmin broadcast
  * drops the link whenever the watch leaves broadcast mode and has known
  * intermittent dropouts, so unexpected disconnects trigger a bounded
  * auto-reconnect loop before giving up.
  */
 export class BleHeartRateMonitor implements HeartRateMonitor {
-  private manager: BleManager;
   private sampleListeners = new Set<(sample: HeartRateSample) => void>();
   private stateListeners = new Set<(state: ConnectionState) => void>();
   private restoredListeners = new Set<(device: DiscoveredDevice) => void>();
@@ -39,15 +67,16 @@ export class BleHeartRateMonitor implements HeartRateMonitor {
   private connectedId: string | null = null;
   private intentionalDisconnect = false;
 
-  constructor() {
-    this.manager = new BleManager({
-      restoreStateIdentifier: RESTORE_STATE_ID,
-      restoreStateFunction: (restoredState) => {
-        const peripheral = restoredState?.connectedPeripherals[0];
-        if (peripheral) void this.adoptRestored(peripheral);
-      },
-    });
-  }
+  /**
+   * Accepts its BleManager and an app-state reader instead of constructing
+   * them, so the scan state machine, reconnect backoff, and restoration path
+   * are drivable with fakes (audit 1.1). createBleHeartRateMonitor builds
+   * the real, restoration-wired pair for composeApp().
+   */
+  constructor(
+    private manager: BleManager,
+    private appState: AppStateReader,
+  ) {}
 
   /**
    * Fires when iOS restored a connection from a system-killed session
@@ -60,11 +89,7 @@ export class BleHeartRateMonitor implements HeartRateMonitor {
     return () => this.restoredListeners.delete(listener);
   }
 
-  startScan(
-    onDevice: (device: DiscoveredDevice) => void,
-    onError: (error: Error) => void,
-    onScanStarted?: () => void,
-  ): void {
+  startScan({ onDevice, onError, onScanStarted }: ScanListener): void {
     this.stateSub?.remove();
     // The listener stays armed for the whole scan session, not just until
     // the first PoweredOn: toggling Bluetooth off kills the native scan,
@@ -172,8 +197,10 @@ export class BleHeartRateMonitor implements HeartRateMonitor {
     this.attach(device);
   }
 
-  /** iOS handed back a still-connected peripheral after a relaunch. */
-  private async adoptRestored(device: Device): Promise<void> {
+  /** iOS handed back a still-connected peripheral after a relaunch — the
+   * restoreStateFunction createBleHeartRateMonitor wires into the
+   * BleManager calls this. */
+  async adoptRestored(device: Device): Promise<void> {
     try {
       await device.discoverAllServicesAndCharacteristics();
       this.intentionalDisconnect = false;
@@ -239,7 +266,7 @@ export class BleHeartRateMonitor implements HeartRateMonitor {
     // await. Hand iOS a single pending connect instead — it never times
     // out, survives suspension, and completes (waking the app again)
     // whenever the sensor reappears (#47).
-    if (AppState.currentState !== 'active') {
+    if (!this.appState.isActive()) {
       try {
         await this.establish(deviceId);
         this.setState('connected');

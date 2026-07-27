@@ -1,11 +1,11 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FlatList, RefreshControl, StyleSheet, Switch, View } from 'react-native';
-import type { RootStackParamList } from '../../App';
-import { VersionFooter } from '../components/VersionFooter';
+import type { RootStackParamList } from '../app/navigation';
+import { useHeartRate } from '../app/useHeartRate';
 import type { DiscoveredDevice } from '../ble/HeartRateMonitor';
-import { Button, Card, Row, Text } from '../ds';
-import { useHeartRate } from '../store/appStore';
-import { spacing, useTheme } from '../theme';
+import { Button, Card, Row, spacing, Text, useTheme } from '../ds';
+import { scanRowDisabled, scanRowMeta, scanStatusLabel } from './scanStatus';
+import { VersionFooter } from './VersionFooter';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Scan'>;
 
@@ -36,15 +36,7 @@ export function ScanScreen({ navigation }: Props) {
       <View style={styles.statusRow}>
         {/* An error means no scan is running, whatever the scan session
             thinks — never claim to be scanning while one is showing (#136). */}
-        <Text color="textSecondary">
-          {!scanEnabled
-            ? 'Scanning paused'
-            : error
-              ? 'Not scanning'
-              : scanning
-                ? 'Scanning for heart-rate sensors'
-                : 'Waiting for Bluetooth…'}
-        </Text>
+        <Text color="textSecondary">{scanStatusLabel(scanEnabled, error, scanning)}</Text>
         <Switch
           value={scanEnabled}
           onValueChange={onToggleScan}
@@ -62,19 +54,13 @@ export function ScanScreen({ navigation }: Props) {
           <RefreshControl refreshing={false} onRefresh={onRescan} tintColor={theme.accent} />
         }
         renderItem={({ item }) => {
-          const disabled = connectingId !== null || item.stale;
+          const disabled = scanRowDisabled(connectingId, item.stale);
           return (
             <Card style={item.stale && styles.staleCard}>
               <Row
                 label={item.name}
                 variant="title"
-                meta={
-                  item.stale
-                    ? scanEnabled
-                      ? 'Not broadcasting — reappears automatically'
-                      : 'Not broadcasting — scanning is off'
-                    : `RSSI ${item.rssi ?? '—'} dBm`
-                }
+                meta={scanRowMeta(item.stale, scanEnabled, item.rssi)}
                 trailing={
                   connectingId === item.id ? (
                     <Text variant="caption" color="accent">connecting…</Text>

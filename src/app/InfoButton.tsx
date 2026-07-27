@@ -1,6 +1,5 @@
 import { Pressable, StyleSheet } from 'react-native';
-import { Text } from '../ds';
-import { useTheme } from '../theme';
+import { Text, useTheme } from '../ds';
 
 // The circled "i" that opens the About screen. Lives in the navigator
 // header (headerRight) so it is reachable from any screen, not just Scan.

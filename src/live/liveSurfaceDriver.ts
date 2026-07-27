@@ -7,14 +7,14 @@ import { HeartRateState } from '../store/heartRateStore';
 export const UPDATE_FLOOR_MS = 2500;
 // The staleDate advances with every update, so it must be refreshed even
 // while the BPM holds perfectly steady or a live session would self-label
-// stale. Well under STALE_AFTER_MS.
+// stale. Well under ACTIVITY_STALE_AFTER_MS.
 export const REFRESH_MS = 15000;
 // Without a fresh reading for this long the activity self-labels stale —
 // the system flips it via staleDate, no app execution needed (#48).
 // The value we hand ActivityKit is ~20 s; Lock Screen presentation has been
 // observed several times later (~60–120 s). Accepted system slack, not an
 // app bug — see #141 and docs/design-notes.md.
-export const STALE_AFTER_MS = 20000;
+export const ACTIVITY_STALE_AFTER_MS = 20000;
 // Unexpected drop: the stale activity stays up this long waiting for the
 // sensor to return, then ends and disappears (#48).
 export const DROP_GRACE_MS = 5 * 60000;
@@ -80,7 +80,7 @@ export function attachLiveSurfaces(
     if (!last) return;
     lastPushAt = now;
     lastPushedBpm = last.bpm;
-    void activity.update(last.bpm, last.timestampMs, last.timestampMs + STALE_AFTER_MS);
+    void activity.update(last.bpm, last.timestampMs, last.timestampMs + ACTIVITY_STALE_AFTER_MS);
   }
 
   function clearGrace(): void {
@@ -144,7 +144,7 @@ export function attachLiveSurfaces(
         last.deviceName,
         last.bpm,
         last.timestampMs,
-        last.timestampMs + STALE_AFTER_MS,
+        last.timestampMs + ACTIVITY_STALE_AFTER_MS,
       );
     }
     writeWidget('live', true);
@@ -173,7 +173,7 @@ export function attachLiveSurfaces(
         connectedDevice.name,
         sample.bpm,
         sample.timestamp,
-        sample.timestamp + STALE_AFTER_MS,
+        sample.timestamp + ACTIVITY_STALE_AFTER_MS,
       );
       writeWidget('live', true);
       return;

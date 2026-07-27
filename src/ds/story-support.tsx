@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
-import { spacing, useTheme } from '../theme';
+import { spacing, useTheme } from './theme';
 
 // Shared story decorator: paints the active theme's `bg` behind a primitive and
 // pads it, so every story reads correctly under whichever OS appearance is set

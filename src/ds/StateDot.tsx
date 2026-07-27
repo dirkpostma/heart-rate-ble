@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { radius, useTheme } from '../theme';
+import { radius, useTheme } from './theme';
 
 export type StateDotProps = {
   color: 'success' | 'warning';

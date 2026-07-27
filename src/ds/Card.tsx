@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { radius, useTheme } from '../theme';
+import { radius, useTheme } from './theme';
 
 export type CardProps = {
   children: ReactNode;

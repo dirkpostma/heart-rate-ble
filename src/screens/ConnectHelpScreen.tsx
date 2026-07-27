@@ -1,10 +1,9 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Fragment, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
-import type { RootStackParamList } from '../../App';
+import type { RootStackParamList } from '../app/navigation';
 import { connectHelpSections, type HelpSection } from '../content/connectHelp';
-import { Card, Icon, Row, Screen, Text } from '../ds';
-import { spacing } from '../theme';
+import { Card, Icon, Row, Screen, spacing, Text } from '../ds';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ConnectHelp'>;
 

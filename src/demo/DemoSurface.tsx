@@ -1,30 +1,17 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 import {
   Animated,
-  LayoutChangeEvent,
-  PanResponder,
   Pressable,
   StyleSheet,
   Text as RNText,
   View,
 } from 'react-native';
+import { getDemoMonitor } from '../app/demoMonitor';
+import { useHeartRate } from '../app/useHeartRate';
 import { DemoProfile, PROFILE_LABEL } from '../ble/DemoHeartRateMonitor';
-import { Text } from '../ds';
-import { demoMonitor, useHeartRate } from '../store/appStore';
+import { radius, shadowFloating, spacing, Text, useTheme } from '../ds';
 import { useDevMode } from '../store/devModeStore';
-import { radius, shadowFloating, spacing, useTheme } from '../theme';
-
-const PILL = { width: 92, height: 40 };
-// 288 + 2 * EDGE.side fills a 320 pt screen exactly — the floor for
-// supported devices — while giving the 36 pt action targets room.
-const PANEL_WIDTH = 288;
-// Bottom inset keeps the default position clear of the Disconnect
-// button and version footer. Top must clear the iOS Notification Center
-// pull-down: with the 12 pt hitSlop a grab can start that far above the
-// dot, and at 16 pt the system gesture claimed the drag (#26).
-const EDGE = { side: spacing.md, top: spacing.xl, bottom: 104 };
-// Release displacement under this is a tap (opens the panel), not a drag.
-const TAP_SLOP = 6;
+import { useDemoSurfaceGesture } from './useDemoSurfaceGesture';
 
 // The glossary the #20 device pass found missing (#33). Each action line
 // names the on-screen consequence, not just the mechanics — the demo
@@ -57,62 +44,6 @@ const HELP_ROWS = [
   },
 ];
 
-type AnchorRow = 'top' | 'middle' | 'bottom';
-type AnchorCol = 'left' | 'center' | 'right';
-interface Anchor {
-  row: AnchorRow;
-  col: AnchorCol;
-}
-interface Size {
-  width: number;
-  height: number;
-}
-
-// The snap positions of issue #21: 4 corners + 4 mid-edges.
-const ANCHORS: Anchor[] = (['top', 'middle', 'bottom'] as const).flatMap((row) =>
-  (['left', 'center', 'right'] as const)
-    .filter((col) => !(row === 'middle' && col === 'center'))
-    .map((col) => ({ row, col })),
-);
-
-// Where the surface was last dragged. Pill and panel share it — they are
-// one object in two states (#28), so collapsing after a panel drag puts
-// the pill where the panel was. In-memory only, like the demo devices
-// themselves (map #15): a restart is back at bottom-right.
-let sessionAnchor: Anchor = { row: 'bottom', col: 'right' };
-
-/**
- * Top-left corner of an element of `size` snapped to `anchor`. Elements
- * center themselves on the middle row / center column, so the pill and
- * the variable-height panel share one anchor vocabulary.
- */
-function anchorPoint({ row, col }: Anchor, frame: Size, size: Size): { x: number; y: number } {
-  const x =
-    col === 'left'
-      ? EDGE.side
-      : col === 'right'
-        ? frame.width - size.width - EDGE.side
-        : (frame.width - size.width) / 2;
-  const y =
-    row === 'top'
-      ? EDGE.top
-      : row === 'bottom'
-        ? frame.height - size.height - EDGE.bottom
-        : (frame.height - size.height) / 2;
-  return { x, y };
-}
-
-/**
- * Offset of the panel's center from its resting position at scale 0,
- * chosen so the edge it is anchored to stays pinned: the panel unfolds
- * out of its snap corner instead of ballooning from its center.
- */
-function scaleOrigin({ row, col }: Anchor, size: Size): { x: number; y: number } {
-  const x = col === 'left' ? -size.width / 2 : col === 'right' ? size.width / 2 : 0;
-  const y = row === 'top' ? -size.height / 2 : row === 'bottom' ? size.height / 2 : 0;
-  return { x, y };
-}
-
 // The "you can drag this" affordance shared by the pill and the panel
 // header. View-drawn like the chevron (#24) so it can't drift on a text
 // baseline.
@@ -129,20 +60,6 @@ function DotGrip({ color }: { color: string }) {
   );
 }
 
-function nearestAnchor(pos: { x: number; y: number }, frame: Size, size: Size): Anchor {
-  let best = ANCHORS[0];
-  let bestDistance = Infinity;
-  for (const anchor of ANCHORS) {
-    const point = anchorPoint(anchor, frame, size);
-    const distance = (point.x - pos.x) ** 2 + (point.y - pos.y) ** 2;
-    if (distance < bestDistance) {
-      best = anchor;
-      bestDistance = distance;
-    }
-  }
-  return best;
-}
-
 /**
  * The demo control surface (issues #17/#19): a small grey "DEMO" pill
  * present on every screen — release builds included — that expands into
@@ -154,6 +71,7 @@ function nearestAnchor(pos: { x: number; y: number }, frame: Size, size: Size): 
  */
 export function DemoSurface() {
   const theme = useTheme();
+  const demoMonitor = getDemoMonitor();
   const devices = useSyncExternalStore(
     (onChange) => demoMonitor.onDevicesChanged(onChange),
     () => demoMonitor.getDevices(),
@@ -161,159 +79,29 @@ export function DemoSurface() {
   const connectedId = useHeartRate((state) => state.connectedDevice?.id ?? null);
   const devMode = useDevMode((state) => state.enabled);
   const setStorybookActive = useDevMode((state) => state.setStorybookActive);
-  const [open, setOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [frame, setFrame] = useState<Size | null>(null);
-  const [panelSize, setPanelSize] = useState<Size | null>(null);
-  const frameRef = useRef<Size | null>(null);
-  const panelSizeRef = useRef<Size | null>(null);
-  const draggingRef = useRef(false);
 
-  const pan = useRef(new Animated.ValueXY()).current;
-  const posRef = useRef({ x: 0, y: 0 });
-  useEffect(() => {
-    const subscription = pan.addListener((value) => {
-      posRef.current = value;
-    });
-    return () => pan.removeListener(subscription);
-  }, [pan]);
-
-  // Unfold progress: 0 = pill, 1 = panel. Animated alongside pan so the
-  // two states read as one object changing shape (#28) rather than a
-  // dialog replacing a button.
-  const openAnim = useRef(new Animated.Value(0)).current;
-  const [animOrigin, setAnimOrigin] = useState({ x: 0, y: 0 });
-  const [closing, setClosing] = useState(false);
-  const pendingOpenAnimRef = useRef(false);
+  const {
+    PILL,
+    PANEL_WIDTH,
+    open,
+    frame,
+    panelSize,
+    pan,
+    openAnim,
+    animOrigin,
+    closing,
+    helpOpen,
+    setHelpOpen,
+    pillResponder,
+    headerResponder,
+    onLayout,
+    onPanelLayout,
+    collapse,
+  } = useDemoSurfaceGesture();
 
   // The one pressed-feedback fill, shared by every Pressable in the panel —
   // the pre-migration `styles.pressed` rule, now a theme-resolved role.
   const pressedBg = { backgroundColor: theme.pressed };
-
-  const animateOpen = () => {
-    Animated.spring(openAnim, { toValue: 1, friction: 7, useNativeDriver: false }).start();
-  };
-
-  const snapTo = (next: Anchor, target: Size, size: Size) => {
-    sessionAnchor = next;
-    Animated.spring(pan, {
-      toValue: anchorPoint(next, target, size),
-      friction: 6,
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const grab = () => {
-    draggingRef.current = true;
-    pan.setOffset(posRef.current);
-    pan.setValue({ x: 0, y: 0 });
-  };
-
-  const settle = (size: Size) => {
-    draggingRef.current = false;
-    pan.flattenOffset();
-    const current = frameRef.current;
-    if (current) snapTo(nearestAnchor(posRef.current, current, size), current, size);
-  };
-
-  const settlePanel = () => settle(panelSizeRef.current ?? { width: PANEL_WIDTH, height: 0 });
-
-  const openPanel = () => {
-    draggingRef.current = false;
-    pan.flattenOffset();
-    const current = frameRef.current;
-    const size = panelSizeRef.current;
-    // First open has no measured size yet: the panel renders hidden and
-    // onPanelLayout places it, then starts the unfold.
-    if (current && size) {
-      pan.setValue(anchorPoint(sessionAnchor, current, size));
-      setAnimOrigin(scaleOrigin(sessionAnchor, size));
-      animateOpen();
-    } else {
-      pendingOpenAnimRef.current = true;
-    }
-    setOpen(true);
-  };
-
-  const collapse = () => {
-    if (closing) return;
-    const size = panelSizeRef.current;
-    if (size) setAnimOrigin(scaleOrigin(sessionAnchor, size));
-    setClosing(true);
-    Animated.spring(openAnim, {
-      toValue: 0,
-      friction: 7,
-      // A refold that overshoots would swing through negative scale.
-      overshootClamping: true,
-      useNativeDriver: false,
-    }).start(() => {
-      setClosing(false);
-      setOpen(false);
-      // Help is read-once: reopening the panel returns to the compact
-      // working layout, not a wall of text.
-      setHelpOpen(false);
-      const current = frameRef.current;
-      if (current) pan.setValue(anchorPoint(sessionAnchor, current, PILL));
-    });
-  };
-
-  const pillResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: grab,
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
-        useNativeDriver: false,
-      }),
-      onPanResponderRelease: (_event, gesture) => {
-        if (Math.abs(gesture.dx) < TAP_SLOP && Math.abs(gesture.dy) < TAP_SLOP) {
-          openPanel();
-          return;
-        }
-        settle(PILL);
-      },
-      onPanResponderTerminate: () => settle(PILL),
-    }),
-  ).current;
-
-  const headerResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: grab,
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
-        useNativeDriver: false,
-      }),
-      onPanResponderRelease: () => settlePanel(),
-      onPanResponderTerminate: () => settlePanel(),
-    }),
-  ).current;
-
-  const onLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    const next = { width, height };
-    frameRef.current = next;
-    setFrame(next);
-    const size = open ? (panelSizeRef.current ?? PILL) : PILL;
-    pan.setValue(anchorPoint(sessionAnchor, next, size));
-  };
-
-  const onPanelLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    const size = { width, height };
-    panelSizeRef.current = size;
-    setPanelSize(size);
-    // Keep the panel pinned to its anchor as rows come and go (a
-    // bottom-anchored panel grows upward); a drag in progress owns the
-    // position instead.
-    const current = frameRef.current;
-    if (current && !draggingRef.current) {
-      pan.setValue(anchorPoint(sessionAnchor, current, size));
-    }
-    if (pendingOpenAnimRef.current) {
-      pendingOpenAnimRef.current = false;
-      setAnimOrigin(scaleOrigin(sessionAnchor, size));
-      animateOpen();
-    }
-  };
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onLayout}>
@@ -321,6 +109,7 @@ export function DemoSurface() {
         <Animated.View
           style={[
             styles.pill,
+            { width: PILL.width, height: PILL.height, borderRadius: PILL.height / 2 },
             { backgroundColor: theme.surface, borderColor: theme.textSecondary },
             { transform: pan.getTranslateTransform() },
           ]}
@@ -346,6 +135,7 @@ export function DemoSurface() {
         <Animated.View
           style={[
             styles.panel,
+            { width: PANEL_WIDTH },
             {
               backgroundColor: theme.surfaceElevated,
               borderColor: theme.border,
@@ -533,9 +323,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
-    width: PILL.width,
-    height: PILL.height,
-    borderRadius: PILL.height / 2,
     borderWidth: 1,
     opacity: 0.75,
     flexDirection: 'row',
@@ -557,7 +344,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
-    width: PANEL_WIDTH,
     borderWidth: 1,
     borderRadius: radius.card,
     padding: spacing.sm,

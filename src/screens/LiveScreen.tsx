@@ -1,12 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { RootStackParamList } from '../../App';
+import type { RootStackParamList } from '../app/navigation';
+import { useHeartRate } from '../app/useHeartRate';
 import { ConnectionState } from '../ble/HeartRateMonitor';
-import { PulsingHeart } from '../components/PulsingHeart';
-import { Button, StateDot, Text } from '../ds';
-import { useHeartRate } from '../store/appStore';
-import { spacing, useTheme } from '../theme';
+import { Button, spacing, StateDot, Text, useTheme } from '../ds';
+import { deriveSignalPresence } from '../store/signalPresence';
+import { PulsingHeart } from './PulsingHeart';
 
 // 'disconnected' while this screen is still showing means the monitor
 // reported the drop (user-initiated disconnects navigate away): the
@@ -17,10 +17,6 @@ const STATE_LABEL: Record<ConnectionState, string> = {
   connected: 'Connected',
   reconnecting: 'Reconnecting…',
 };
-
-// Garmin broadcast can stop sending without dropping the BLE link, so
-// silence — not just disconnection — must surface in the UI.
-const STALE_AFTER_MS = 5000;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Live'>;
 
@@ -60,13 +56,11 @@ export function LiveScreen({ navigation }: Props) {
     navigation.popTo('Scan');
   };
 
-  const lost = connectionState === 'disconnected';
-  const stale =
-    connectionState === 'connected' && sample !== null && now - sample.timestamp > STALE_AFTER_MS;
-  const bpm = !stale && sample && sample.bpm > 0 ? sample.bpm : null;
-  const acquiring = connectionState === 'connected' && !stale && bpm === null;
-
-  const connected = connectionState === 'connected' && !stale;
+  const { lost, stale, acquiring, bpm, connected } = deriveSignalPresence(
+    connectionState,
+    sample,
+    now,
+  );
 
   return (
     // FlatList-free screen, but the DS Screen (ScrollView) would collapse the

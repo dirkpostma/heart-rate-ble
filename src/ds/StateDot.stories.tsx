@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { spacing } from '../theme';
+import { spacing } from './theme';
 import { StateDot } from './StateDot';
 import { Text } from './Text';
 import { ThemedBackdrop } from './story-support';

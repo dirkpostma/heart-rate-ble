@@ -6,24 +6,23 @@ import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { DemoSurface } from './src/components/DemoSurface';
-import { InfoButton } from './src/components/InfoButton';
-import { UpdateBanner } from './src/components/UpdateBanner';
-import { navigationRef } from './src/navigation';
+import { composeApp } from './src/app/composeApp';
+import { InfoButton } from './src/app/InfoButton';
+import { navigationRef, RootStackParamList } from './src/app/navigation';
+import { UpdateBanner } from './src/app/UpdateBanner';
+import { navThemes } from './src/ds';
+import { DemoSurface } from './src/demo';
 import { AboutScreen } from './src/screens/AboutScreen';
 import { ConnectHelpScreen } from './src/screens/ConnectHelpScreen';
 import { LiveScreen } from './src/screens/LiveScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
 import { StorybookScreen } from './src/screens/StorybookScreen';
 import { useDevMode } from './src/store/devModeStore';
-import { navThemes } from './src/theme';
 
-export type RootStackParamList = {
-  Scan: undefined;
-  Live: undefined;
-  About: undefined;
-  ConnectHelp: undefined;
-};
+// composeApp() builds the object graph once at module load — the same
+// timing the old appStore.ts singleton had, but now an explicit call
+// instead of import-time side effects buried in a store module (audit 1.3).
+composeApp();
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 

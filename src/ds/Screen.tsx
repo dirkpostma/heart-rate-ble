@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { spacing, useTheme } from '../theme';
+import { spacing, useTheme } from './theme';
 
 export type ScreenProps = {
   children: ReactNode;
