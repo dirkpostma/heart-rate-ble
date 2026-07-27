@@ -8,7 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { composeApp } from './src/app/composeApp';
 import { InfoButton } from './src/app/InfoButton';
-import { navigationRef, RootStackParamList } from './src/app/navigation';
+import { RootStackParamList } from './src/app/navigation';
 import { UpdateBanner } from './src/app/UpdateBanner';
 import { navThemes } from './src/ds';
 import { DemoSurface } from './src/demo';
@@ -36,7 +36,7 @@ function AppRoot() {
       {/* UpdateBanner and DemoSurface stay mounted outside the navigator so
           they persist across screen transitions. */}
       <UpdateBanner />
-      <NavigationContainer ref={navigationRef} theme={navThemes[scheme === 'light' ? 'light' : 'dark']}>
+      <NavigationContainer theme={navThemes[scheme === 'light' ? 'light' : 'dark']}>
         {/* Header + content chrome derive entirely from the nav theme; no
             per-screen style overrides. */}
         <Stack.Navigator initialRouteName="Scan">

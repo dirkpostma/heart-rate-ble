@@ -16,7 +16,13 @@ const path = require('path');
 // archive still builds clean. Runs during prebuild, before pod install, so
 // it survives `expo prebuild --clean` and EAS builds alike.
 //
-// Remove once the fork drops the flags upstream (tracked on issue #114).
+// Expiry: remove when the fork is bumped to >= 3.9.2, which drops the flags
+// upstream (fork issue #31). Verified 2026-07-27 against registry tarballs —
+// 3.8.4 (the current pin), 3.9.0 and 3.9.1 all still carry them; 3.9.2's
+// podspec removes them with its own comment explaining why. The old pointer
+// here was issue #114, which is closed but was never the real condition.
+// Don't check node_modules to test this: the installed copy shows the flags
+// already stripped because this plugin ran during a past prebuild.
 const PODSPEC = 'node_modules/@sfourdrinier/react-native-ble-plx/react-native-ble-plx.podspec';
 const FLAGS = / -fmodules -fcxx-modules/g;
 

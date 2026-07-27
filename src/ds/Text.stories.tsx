@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { spacing } from './theme';
 import { Text } from './Text';
-import type { Meta, StoryObj } from './story-types';
+import type { Meta, StoryObj } from '@storybook/react-native';
 
 // Both themes: the app follows the OS appearance (issue #83, OS-follow only, no
 // toggle), so flip the simulator/device between Light and Dark to see each
