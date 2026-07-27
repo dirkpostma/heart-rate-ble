@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "test": "jest",
     "verify": "npm run typecheck && npm run lint && npm test",
+    "verify:native": "./scripts/verify-native.sh",
     "storybook-generate": "sb-rn-get-stories"
   },
   "dependencies": {
