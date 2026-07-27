@@ -1,5 +1,11 @@
 import { createNavigationContainerRef } from '@react-navigation/native';
-import type { RootStackParamList } from '../App';
+
+export type RootStackParamList = {
+  Scan: undefined;
+  Live: undefined;
+  About: undefined;
+  ConnectHelp: undefined;
+};
 
 // A shared container ref lets components mounted *outside* the navigator —
 // the DemoSurface, which floats above every screen (#17) — drive navigation.

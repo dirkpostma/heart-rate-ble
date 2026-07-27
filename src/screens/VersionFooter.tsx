@@ -1,8 +1,7 @@
 import * as Application from 'expo-application';
 import * as Updates from 'expo-updates';
 import { StyleSheet } from 'react-native';
-import { Text } from '../ds';
-import { spacing } from '../theme';
+import { spacing, Text } from '../ds';
 
 function otaLabel(): string {
   if (__DEV__) return 'dev';

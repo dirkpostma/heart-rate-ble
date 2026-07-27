@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDevMode } from '../store/devModeStore';
-import { radius, spacing, useTheme } from '../theme';
+import { radius, spacing, useTheme } from '../ds';
 
 // The on-device Storybook UI is lazy-loaded so its module tree (the RN
 // Storybook renderer, both on-device addons, and every co-located story)

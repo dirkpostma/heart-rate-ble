@@ -1,10 +1,9 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
-import type { RootStackParamList } from '../../App';
-import { VersionFooter } from '../components/VersionFooter';
-import { Card, Divider, Icon, Row, Screen, Text } from '../ds';
+import type { RootStackParamList } from '../app/navigation';
+import { Card, Divider, Icon, Row, Screen, spacing, Text } from '../ds';
 import { useDevModeTap } from '../store/useDevModeTap';
-import { spacing } from '../theme';
+import { VersionFooter } from './VersionFooter';
 
 const REPO_URL = 'https://github.com/dirkpostma/heart-rate-ble';
 // Same URL the App Store listing declares as the privacy policy.
