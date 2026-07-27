@@ -24,11 +24,31 @@ const CONNECT_TIMEOUT_MS = 10000;
 const RECONNECT_ATTEMPTS = 5;
 // Opts in to iOS state restoration: when the system kills the suspended
 // app while a connection or pending connect is alive, iOS relaunches it
-// on the next BLE event and hands the connection back (#47). Exported so
-// composeApp() can wire the same identifier into the BleManager it builds.
-export const RESTORE_STATE_ID = 'dev.dirkpostma.heartrateble.restore';
+// on the next BLE event and hands the connection back (#47).
+const RESTORE_STATE_ID = 'dev.dirkpostma.heartrateble.restore';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Builds the production monitor: a BleManager wired for iOS state
+ * restoration whose restore callback feeds adoptRestored. The manager and
+ * the monitor reference each other, so this factory owns that two-step
+ * construction; the constructor itself stays injection-only for tests
+ * (audit 1.1). Restoration events replay asynchronously from native, so
+ * the callback can never fire before the assignment below it.
+ */
+export function createBleHeartRateMonitor(appState: AppStateReader): BleHeartRateMonitor {
+  let monitor: BleHeartRateMonitor | null = null;
+  const manager = new BleManager({
+    restoreStateIdentifier: RESTORE_STATE_ID,
+    restoreStateFunction: (restoredState) => {
+      const peripheral = restoredState?.connectedPeripherals[0];
+      if (peripheral) void monitor?.adoptRestored(peripheral);
+    },
+  });
+  monitor = new BleHeartRateMonitor(manager, appState);
+  return monitor;
+}
 
 /**
  * Real BLE heart-rate source via @sfourdrinier/react-native-ble-plx. Garmin broadcast
@@ -50,9 +70,8 @@ export class BleHeartRateMonitor implements HeartRateMonitor {
   /**
    * Accepts its BleManager and an app-state reader instead of constructing
    * them, so the scan state machine, reconnect backoff, and restoration path
-   * are drivable with fakes (audit 1.1). composeApp() constructs the real
-   * BleManager (wired with RESTORE_STATE_ID and a restoreStateFunction that
-   * calls back into adoptRestored) and passes it in.
+   * are drivable with fakes (audit 1.1). createBleHeartRateMonitor builds
+   * the real, restoration-wired pair for composeApp().
    */
   constructor(
     private manager: BleManager,
@@ -179,7 +198,8 @@ export class BleHeartRateMonitor implements HeartRateMonitor {
   }
 
   /** iOS handed back a still-connected peripheral after a relaunch — the
-   * restoreStateFunction composeApp() wires into the BleManager calls this. */
+   * restoreStateFunction createBleHeartRateMonitor wires into the
+   * BleManager calls this. */
   async adoptRestored(device: Device): Promise<void> {
     try {
       await device.discoverAllServicesAndCharacteristics();

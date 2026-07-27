@@ -1,10 +1,11 @@
-import { BleManager } from '@sfourdrinier/react-native-ble-plx';
-import { BleHeartRateMonitor, RESTORE_STATE_ID } from '../ble/BleHeartRateMonitor';
+import { createBleHeartRateMonitor } from '../ble/BleHeartRateMonitor';
 import { DemoHeartRateMonitor } from '../ble/DemoHeartRateMonitor';
 import { attachLiveSurfaces } from '../live/liveSurfaceDriver';
 import { createNativeSurfaces } from '../live/nativeSurfaces';
 import { createHeartRateStore, HeartRateStore } from '../store/heartRateStore';
+import { bindDemoMonitor } from './demoMonitor';
 import { reactNativeAppState } from './reactNativeAppState';
+import { bindHeartRateStore } from './useHeartRate';
 
 export interface AppGraph {
   heartRateStore: HeartRateStore;
@@ -13,23 +14,16 @@ export interface AppGraph {
 
 /**
  * Builds the app's object graph: BleManager -> monitor -> store -> live-
- * surface attach. Import is side-effect-free — nothing runs until a caller
- * invokes composeApp(), so tests can compose the graph from fakes instead
- * (the store factory already accepts sources; DemoHeartRateMonitor is a
- * full fake adapter). App.tsx calls this once at startup.
+ * surface attach — and binds the useHeartRate/demoMonitor hook modules to
+ * it. Import is side-effect-free — nothing runs until a caller invokes
+ * composeApp(), so tests can compose the graph from fakes instead (the
+ * store factory already accepts sources; DemoHeartRateMonitor is a full
+ * fake adapter, and the bind functions accept fakes directly). App.tsx
+ * calls this once at startup.
  */
 export function composeApp(): AppGraph {
   const demoMonitor = new DemoHeartRateMonitor();
-
-  let bleMonitor!: BleHeartRateMonitor;
-  const manager = new BleManager({
-    restoreStateIdentifier: RESTORE_STATE_ID,
-    restoreStateFunction: (restoredState) => {
-      const peripheral = restoredState?.connectedPeripherals[0];
-      if (peripheral) void bleMonitor.adoptRestored(peripheral);
-    },
-  });
-  bleMonitor = new BleHeartRateMonitor(manager, reactNativeAppState);
+  const bleMonitor = createBleHeartRateMonitor(reactNativeAppState);
 
   const heartRateStore = createHeartRateStore([demoMonitor, bleMonitor]);
 
@@ -43,6 +37,9 @@ export function composeApp(): AppGraph {
   if (surfaces) {
     attachLiveSurfaces(heartRateStore, surfaces.activity, surfaces.widget);
   }
+
+  bindHeartRateStore(heartRateStore);
+  bindDemoMonitor(demoMonitor);
 
   // Dev-only handles so the store and demo devices can be driven from the
   // debugger — e.g. summoning a device to stage screenshots on the

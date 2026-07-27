@@ -6,12 +6,10 @@ import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { bindDemoMonitor } from './src/app/demoMonitor';
+import { composeApp } from './src/app/composeApp';
 import { InfoButton } from './src/app/InfoButton';
 import { navigationRef, RootStackParamList } from './src/app/navigation';
 import { UpdateBanner } from './src/app/UpdateBanner';
-import { bindHeartRateStore } from './src/app/useHeartRate';
-import { composeApp } from './src/app/composeApp';
 import { navThemes } from './src/ds';
 import { DemoSurface } from './src/demo';
 import { AboutScreen } from './src/screens/AboutScreen';
@@ -24,9 +22,7 @@ import { useDevMode } from './src/store/devModeStore';
 // composeApp() builds the object graph once at module load — the same
 // timing the old appStore.ts singleton had, but now an explicit call
 // instead of import-time side effects buried in a store module (audit 1.3).
-const { heartRateStore, demoMonitor } = composeApp();
-bindHeartRateStore(heartRateStore);
-bindDemoMonitor(demoMonitor);
+composeApp();
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
