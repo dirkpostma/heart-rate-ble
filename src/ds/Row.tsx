@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type AccessibilityState } from 'react-native';
-import { spacing } from '../theme';
+import { spacing } from './theme';
 import { Text } from './Text';
 
 export type RowProps = {

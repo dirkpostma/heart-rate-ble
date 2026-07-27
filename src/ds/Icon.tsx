@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { useTheme, type ColorRoles } from '../theme';
+import { useTheme, type ColorRoles } from './theme';
 
 export type IconName = 'chevron-right' | 'chevron-down';
 

@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { spacing } from '../theme';
+import { spacing } from './theme';
 import { Text } from './Text';
 import type { Meta, StoryObj } from './story-types';
 

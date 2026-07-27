@@ -1,4 +1,4 @@
-import { spacing } from '../theme';
+import { spacing } from './theme';
 import { Card } from './Card';
 import { Divider } from './Divider';
 import { Row } from './Row';
