@@ -12,7 +12,7 @@ export type Meta<C extends ComponentType<any>> = {
   component: C;
   args?: Partial<ComponentProps<C>>;
   argTypes?: Record<string, unknown>;
-  decorators?: Array<(story: () => ReactElement) => ReactElement>;
+  decorators?: ((story: () => ReactElement) => ReactElement)[];
 };
 
 export type StoryObj<C extends ComponentType<any>> = {

@@ -1,3 +1,9 @@
+/* eslint-disable react-hooks/refs -- this module is the Animated/PanResponder
+   layer: `useRef(new Animated.ValueXY()).current`, responders built once in a
+   ref, and measured-layout refs read during render are all the canonical React
+   Native idioms. The rule targets React Compiler reactivity, which these
+   mutable handles deliberately sit outside of. Disabled per-file rather than
+   repo-wide so the rule still guards new code. */
 import { useEffect, useRef, useState } from 'react';
 import { Animated, LayoutChangeEvent, PanResponder } from 'react-native';
 import { Anchor, anchorPoint, nearestAnchor, scaleOrigin, Size } from './snapGeometry';
@@ -52,6 +58,12 @@ export function useDemoSurfaceGesture() {
   };
 
   const snapTo = (next: Anchor, target: Size, size: Size) => {
+    // Deliberate module-level session state (#28): the pill and panel are one
+    // object in two states, so the anchor must outlive the collapse that
+    // unmounts the panel. Only ever written from PanResponder
+    // release/terminate handlers, never during render — the rule cannot see
+    // that through the closure.
+    // eslint-disable-next-line react-hooks/globals
     sessionAnchor = next;
     Animated.spring(pan, {
       toValue: anchorPoint(next, target, size),
