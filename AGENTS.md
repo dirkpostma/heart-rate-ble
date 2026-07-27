@@ -5,6 +5,21 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/
 before writing any code — not the unversioned pages, and not v54, which is
 what this project used before [#120](https://github.com/dirkpostma/heart-rate-ble/pull/120).
 
+# Before you open a PR
+
+```sh
+npm run verify          # typecheck && lint && test — CI runs exactly this
+npm run verify:native   # additionally, when targets/ or modules/*/ios/ is touched
+```
+
+CI blocks merge on `npm run verify`. The native rungs are local-only by
+decision ([#152](https://github.com/dirkpostma/heart-rate-ble/issues/152)) —
+if you touch native, run them and say so in the PR.
+
+Read [docs/coding-standards.md](docs/coding-standards.md) before writing
+code: it carries the module-shape, naming, comment and test rules this repo
+is held to.
+
 # Building and testing on a device
 
 No cable ever reaches the Mac Studio. iOS builds run **locally** (EAS build
