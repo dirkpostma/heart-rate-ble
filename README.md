@@ -127,11 +127,14 @@ Where the documentation lives:
 | Decision index | The [wayfinder map](https://github.com/dirkpostma/heart-rate-ble/issues/1) — one line per closed ticket |
 | Full reasoning per decision | Resolution comments on the closed tickets under the map |
 | Design rationale (narrative) | [docs/design-notes.md](docs/design-notes.md) |
-| Research summaries | [docs/research/](docs/research/) (BLE profile, Expo + ble-plx setup) |
-| UI prototypes | [docs/prototype/](docs/prototype/) |
+| Research summaries | [docs/research/](docs/research/) (BLE profile, Expo + ble-plx setup) — each carries a status header |
+| How Bluetooth heart rate works | [docs/ble-primer.md](docs/ble-primer.md) |
+| Manual on-device BLE checklist | [docs/ble-smoke-test.md](docs/ble-smoke-test.md) |
 | Getting a build onto a device (no cable) | [docs/dev-client-testing.md](docs/dev-client-testing.md) |
 | TestFlight / App Store operations | [docs/release-operations.md](docs/release-operations.md) |
+| Coding standards agents are held to | [docs/coding-standards.md](docs/coding-standards.md) |
 | Instructions for coding agents | [AGENTS.md](AGENTS.md) (loaded by Claude Code via CLAUDE.md) |
+| App icon source art | [docs/icon-masters/](docs/icon-masters/) |
 
 **To propose a change**, open an issue framed as the *question* it resolves
 rather than a finished solution — that's the shape every decision here

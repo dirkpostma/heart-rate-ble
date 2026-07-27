@@ -2,7 +2,7 @@ import { Card } from './Card';
 import { Divider } from './Divider';
 import { Row } from './Row';
 import { ThemedBackdrop } from './story-support';
-import type { Meta, StoryObj } from './story-types';
+import type { Meta, StoryObj } from '@storybook/react-native';
 
 // Flip the OS appearance (Light/Dark) to see both themes — issue #83.
 const noop = () => {};

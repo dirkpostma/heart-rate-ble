@@ -1,6 +1,6 @@
 import { Text } from './Text';
 import { Screen } from './Screen';
-import type { Meta, StoryObj } from './story-types';
+import type { Meta, StoryObj } from '@storybook/react-native';
 
 // Screen paints its own `bg` and fills flex — it IS the backdrop, so no
 // ThemedBackdrop decorator here. Flip the OS appearance (Light/Dark) to see

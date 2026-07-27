@@ -3,7 +3,7 @@ import { spacing } from './theme';
 import { Icon } from './Icon';
 import { Text } from './Text';
 import { ThemedBackdrop } from './story-support';
-import type { Meta, StoryObj } from './story-types';
+import type { Meta, StoryObj } from '@storybook/react-native';
 
 // Flip the OS appearance (Light/Dark) to see both themes — issue #83.
 const meta: Meta<typeof Icon> = {
