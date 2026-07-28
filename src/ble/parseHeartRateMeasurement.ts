@@ -27,11 +27,26 @@ export function parseHeartRateMeasurement(data: Uint8Array): HeartRateMeasuremen
   const flags = data[0];
   let offset = 1;
 
+  // Every read below is bounds-checked before it happens. Reading past the
+  // end yields `undefined`, and `undefined << 8` is 0 in JS, so a truncated
+  // packet would otherwise parse to a plausible-looking wrong BPM instead of
+  // failing — and the caller (BleHeartRateMonitor.attach) catches and skips
+  // malformed packets, so throwing is the safe outcome.
+  const need = (bytes: number, field: string) => {
+    if (offset + bytes > data.length) {
+      throw new Error(
+        `Heart Rate Measurement truncated: ${field} needs ${bytes} byte(s) at offset ${offset}, got ${data.length} total`,
+      );
+    }
+  };
+
   let bpm: number;
   if (flags & FLAG_16_BIT_BPM) {
+    need(2, '16-bit BPM');
     bpm = data[offset] | (data[offset + 1] << 8);
     offset += 2;
   } else {
+    need(1, '8-bit BPM');
     bpm = data[offset];
     offset += 1;
   }
@@ -43,6 +58,7 @@ export function parseHeartRateMeasurement(data: Uint8Array): HeartRateMeasuremen
 
   let energyExpended: number | undefined;
   if (flags & FLAG_ENERGY_EXPENDED) {
+    need(2, 'energy expended');
     energyExpended = data[offset] | (data[offset + 1] << 8);
     offset += 2;
   }
