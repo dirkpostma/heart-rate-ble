@@ -4,19 +4,8 @@ import WidgetKit
 private let appGroup = "group.dev.dirkpostma.heartrateble"
 private let readingKey = "latestReading"
 
-/// What the app's live-surface driver writes to the app group on every
-/// reading (src/live/liveSurfaceDriver.ts). WidgetKit is budget-refreshed
-/// and never live, so the widget shows "last reading + age" by design.
-struct LatestReading: Codable {
-  var bpm: Int
-  var timestampMs: Double
-  var deviceName: String
-  /// "live" | "stale" | "ended" — drives the connection dot only; the
-  /// age label is honest on its own via the relative date.
-  var sessionState: String
-
-  var timestamp: Date { Date(timeIntervalSince1970: timestampMs / 1000) }
-}
+// LatestReading and SessionState live in LatestReading.swift — Foundation-only
+// so the native-tests package can compile and test them (#168).
 
 struct ReadingEntry: TimelineEntry {
   let date: Date
@@ -112,9 +101,10 @@ private struct WidgetView: View {
   }
 
   private var dotColor: Color {
-    switch reading?.sessionState {
-    case "live": return Theme.success
-    case "stale": return Theme.warning
+    // Anything unrecognised reads as ended — never as live.
+    switch reading?.state {
+    case .live: return Theme.success
+    case .stale: return Theme.warning
     default: return Theme.textDim
     }
   }

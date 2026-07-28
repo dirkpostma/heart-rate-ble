@@ -49,3 +49,6 @@ credentials.json
 
 # local build output (eas build --local --output)
 /build/
+
+# Swift Package Manager build products (native-tests/)
+.build/

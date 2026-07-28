@@ -6,6 +6,7 @@
 #   ./scripts/verify-native.sh            # all rungs
 #   ./scripts/verify-native.sh typecheck  # rung 1 only (~3s cold, <1s warm)
 #   ./scripts/verify-native.sh compile    # rung 2 only (needs ios/)
+#   ./scripts/verify-native.sh unit       # rung 3 only (swift test, ~10s cold)
 #   ./scripts/verify-native.sh attributes # the cross-target invariant only
 #
 # Rungs come from docs/research/native-agent-verification.md (#147):
@@ -15,11 +16,11 @@
 #      which imports ExpoModulesCore and only compiles under rung 2.
 #   2. Unsigned simulator xcodebuild of both native schemes. This is what
 #      actually proves the Expo module and the widget extension build.
-#   3. The HeartRateAttributes invariant — see the `attributes` rung below.
-#
-# A Swift unit-test target (the research's rung 3) does not exist yet:
-# @bacons/apple-targets has no test-bundle type, so it needs a custom config
-# plugin to survive `expo prebuild --clean`. Tracked separately.
+#   3. Unit tests for the widget's pure Swift logic, as a Swift package under
+#      native-tests/ (#168). It lives outside ios/ so it survives
+#      `expo prebuild --clean` by construction, and its source is a symlink to
+#      the real file the widget target compiles — one definition, no drift.
+#   4. The HeartRateAttributes invariant — see the `attributes` rung below.
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -70,6 +71,17 @@ Run 'npx expo prebuild' first. (Git worktrees never have one.)"
   echo "ok"
 }
 
+rung_unit() {
+  step "Rung 3: swift test (native-tests/WidgetLogic)"
+  [[ -f native-tests/Package.swift ]] || die "native-tests/Package.swift missing"
+  # The package compiles targets/widgets/LatestReading.swift via a symlink, so
+  # it tests the file that actually ships rather than a copy. ActivityKit is
+  # iOS-only and cannot be built for macOS, so HeartRateAttributes.ContentState
+  # is covered by the `attributes` rung instead.
+  ( cd native-tests && swift test )
+  echo "ok"
+}
+
 rung_attributes() {
   step "Invariant: the two HeartRateAttributes copies agree"
   local a=modules/live-activity/ios/HeartRateAttributes.swift
@@ -97,9 +109,11 @@ runtime with no compile error. Reconcile the two files."
 case "${1:-all}" in
   typecheck)  rung_typecheck ;;
   compile)    rung_compile ;;
+  unit)       rung_unit ;;
   attributes) rung_attributes ;;
-  all)        rung_attributes; rung_typecheck; rung_compile ;;
-  *)          die "unknown rung '${1}' (expected: typecheck | compile | attributes | all)" ;;
+  # Cheapest and most specific first, so a failure reports the smallest cause.
+  all)        rung_attributes; rung_typecheck; rung_unit; rung_compile ;;
+  *)          die "unknown rung '${1}' (expected: typecheck | compile | unit | attributes | all)" ;;
 esac
 
 printf '\n\033[1mnative verification passed\033[0m\n'
