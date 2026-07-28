@@ -8,6 +8,14 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   testMatch: ['**/*.test.ts'],
+  // ble-plx is a React Native library this environment cannot parse, and its
+  // only runtime value is the `State` enum — which is why BleHeartRateMonitor
+  // had no tests before #165. Swap it for a stub at test runtime only; `tsc`
+  // still checks against the real package, and blePlxStub.test.ts guards the
+  // enum against drift.
+  moduleNameMapper: {
+    '^@sfourdrinier/react-native-ble-plx$': '<rootDir>/src/ble/testing/blePlxStub.ts',
+  },
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',
