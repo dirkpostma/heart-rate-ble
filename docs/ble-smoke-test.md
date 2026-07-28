@@ -500,3 +500,83 @@ paths a dev client cannot exercise): characterize 17 + 24 (#117/#47), verify 7
 and 23, and check whether the stuck "waiting for Bluetooth" relaunch state
 (step 17 note) reproduces outside the dev client. Tracked in
 [#119](https://github.com/dirkpostma/heart-rate-ble/issues/119).
+
+---
+
+## Build 22 run — ble-plx 3.9.2, strip-cxx plugin removed (#169)
+
+The first run against `@sfourdrinier/react-native-ble-plx` **3.9.2** with
+`withBlePlxStripCxxModules` deleted ([#169](https://github.com/dirkpostma/heart-rate-ble/issues/169)),
+also covering the refactor stack #170–#174.
+
+| Field | Value |
+|---|---|
+| Date of run | 2026-07-28 |
+| Tester | Dirk Postma |
+| ble-plx package + version | `@sfourdrinier/react-native-ble-plx@3.9.2` |
+| Architecture | New Architecture (`newArchEnabled: true`) |
+| Expo / RN | SDK 57 / RN 0.86 |
+| App version / build | 1.2.0 (22) — TestFlight internal |
+| Strap / watch | Garmin Forerunner 970 (Broadcast Heart Rate) |
+
+### Results
+
+| # | Step | Build 22 | Notes |
+|---|---|---|---|
+| 1–4 | Scan: radio gating, discovery, RSSI, stale → revive | PASS | |
+| 5–8 | Connect, acquiring → live BPM, contact hint, live staleness | PASS | |
+| 9–10 | User disconnect, reconnect | PASS | |
+| 11–12 | Foreground auto-reconnect, drop exceeds retries | PASS | |
+| 13–14 | Out of range: degradation, return in range | PASS | |
+| 15 | Background while connected | PASS | |
+| 16 | Foreground resumes cleanly | PASS | |
+| 17 | Background drop → pending reconnect | SKIPPED | Not exercised this run |
+| 18 | Live Activity starts on first reading | PASS | |
+| 19 | Updates coalesced | NOT RUN | |
+| 20 | Live Activity self-labels stale | PASS | Flipped at **exactly ~2 min**, against the ~20 s `ACTIVITY_STALE_AFTER_MS` the code hands ActivityKit. Consistent with the accepted system slack of [#141](https://github.com/dirkpostma/heart-rate-ble/issues/141) — and with the baseline run, which saw ~1 min. |
+| 21 | Recovers from stale | NOT RUN | |
+| 22 | Ends on user disconnect | PASS | |
+| 23 | Drop grace then auto-end | NOT RUN | |
+| 24 | State restoration wake | NOT RUN | Still uncharacterised since the baseline; a genuine system kill can't be forced on demand |
+
+Groups 1–2 (steps 1–14) were reported as a group rather than per step; recorded
+as PASS on that basis.
+
+### Non-BLE regression checks (this stack specifically)
+
+Not part of the numbered checklist — verification that the refactor PRs changed
+no behaviour:
+
+| Area | Result | Why it was checked |
+|---|---|---|
+| Demo panel drag / snap to corners and mid-edges | PASS | `snapGeometry` was made import-free and its edge insets became a parameter (#167) |
+| On-device Storybook (About → 5 taps → demo panel → Storybook) | PASS | The local CSF type shim was deleted and stories repointed at `@storybook/react-native` (#162) |
+| Navigation (About, Connect help, back) | PASS | `navigationRef` was removed from `NavigationContainer` (#162) |
+| Home-screen widget dot colour | PASS | `LatestReading` moved to its own file and the session state became a `SessionState` enum (#168) |
+
+### Verdict
+
+**No regression from the 3.9.2 bump.** The whole core loop — scan, connect,
+live BPM, silence detection, user disconnect, foreground auto-reconnect,
+give-up, out-of-range — behaves as on 3.8.4. The device archive also linked
+with zero duplicate-symbol errors, which is the failure the removed plugin
+existed to prevent.
+
+### Found during this run
+
+- **No auto-recovery when Bluetooth is turned back on**
+  ([#175](https://github.com/dirkpostma/heart-rate-ble/issues/175)). From the
+  Live screen, turning the radio off long enough for the retries to be
+  exhausted leaves "Connection lost"; turning it back on resumes nothing.
+  Pre-existing, **not** a 3.9.2 regression. Two causes: the adapter-state
+  listener is armed only inside `startScan`, so nothing observes `PoweredOn`
+  while a device is still set; and the backoff loop spends all five attempts
+  against a powered-off radio instead of parking for a knowable recovery.
+  Includes a second, possibly separate defect — needing to toggle scanning
+  after returning to Scan, which the code suggests should not be necessary.
+
+### Still open for a later run
+
+Steps 17, 19, 21, 23 and 24. Step 24 (state restoration) has never been
+exercised on any run; step 17 is the background drop path that #117/#134
+reworked.
