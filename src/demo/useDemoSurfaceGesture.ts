@@ -6,7 +6,22 @@
    repo-wide so the rule still guards new code. */
 import { useEffect, useRef, useState } from 'react';
 import { Animated, LayoutChangeEvent, PanResponder } from 'react-native';
-import { Anchor, anchorPoint, nearestAnchor, scaleOrigin, Size } from './snapGeometry';
+import { spacing } from '../ds';
+import {
+  Anchor,
+  anchorPoint,
+  EdgeInsets,
+  nearestAnchor,
+  scaleOrigin,
+  Size,
+} from './snapGeometry';
+
+// Bottom inset keeps the default position clear of the Disconnect button and
+// version footer. Top must clear the iOS Notification Center pull-down: with
+// the 12 pt hitSlop a grab can start that far above the dot, and at 16 pt the
+// system gesture claimed the drag (#26). Lives here rather than in
+// snapGeometry so that module stays import-free and unit-testable (#167).
+const EDGE: EdgeInsets = { side: spacing.md, top: spacing.xl, bottom: 104 };
 
 const PILL = { width: 92, height: 40 };
 // 288 + 2 * EDGE.side fills a 320 pt screen exactly — the floor for
@@ -66,7 +81,7 @@ export function useDemoSurfaceGesture() {
     // eslint-disable-next-line react-hooks/globals
     sessionAnchor = next;
     Animated.spring(pan, {
-      toValue: anchorPoint(next, target, size),
+      toValue: anchorPoint(next, target, size, EDGE),
       friction: 6,
       useNativeDriver: false,
     }).start();
@@ -82,7 +97,7 @@ export function useDemoSurfaceGesture() {
     draggingRef.current = false;
     pan.flattenOffset();
     const current = frameRef.current;
-    if (current) snapTo(nearestAnchor(posRef.current, current, size), current, size);
+    if (current) snapTo(nearestAnchor(posRef.current, current, size, EDGE), current, size);
   };
 
   const settlePanel = () => settle(panelSizeRef.current ?? { width: PANEL_WIDTH, height: 0 });
@@ -97,7 +112,7 @@ export function useDemoSurfaceGesture() {
     // First open has no measured size yet: the panel renders hidden and
     // onPanelLayout places it, then starts the unfold.
     if (current && size) {
-      pan.setValue(anchorPoint(sessionAnchor, current, size));
+      pan.setValue(anchorPoint(sessionAnchor, current, size, EDGE));
       setAnimOrigin(scaleOrigin(sessionAnchor, size));
       animateOpen();
     } else {
@@ -124,7 +139,7 @@ export function useDemoSurfaceGesture() {
       // working layout, not a wall of text.
       setHelpOpen(false);
       const current = frameRef.current;
-      if (current) pan.setValue(anchorPoint(sessionAnchor, current, PILL));
+      if (current) pan.setValue(anchorPoint(sessionAnchor, current, PILL, EDGE));
     });
   };
 
@@ -164,7 +179,7 @@ export function useDemoSurfaceGesture() {
     frameRef.current = next;
     setFrame(next);
     const size = open ? (panelSizeRef.current ?? PILL) : PILL;
-    pan.setValue(anchorPoint(sessionAnchor, next, size));
+    pan.setValue(anchorPoint(sessionAnchor, next, size, EDGE));
   };
 
   const onPanelLayout = (event: LayoutChangeEvent) => {
@@ -177,7 +192,7 @@ export function useDemoSurfaceGesture() {
     // position instead.
     const current = frameRef.current;
     if (current && !draggingRef.current) {
-      pan.setValue(anchorPoint(sessionAnchor, current, size));
+      pan.setValue(anchorPoint(sessionAnchor, current, size, EDGE));
     }
     if (pendingOpenAnimRef.current) {
       pendingOpenAnimRef.current = false;
