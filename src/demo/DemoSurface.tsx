@@ -7,10 +7,10 @@ import {
   View,
 } from 'react-native';
 import { getDemoMonitor } from '../app/demoMonitor';
+import { usePreferences } from '../app/preferences';
 import { useHeartRate } from '../app/useHeartRate';
 import { DemoProfile, PROFILE_LABEL } from '../ble/DemoHeartRateMonitor';
 import { radius, shadowFloating, spacing, Text, useTheme } from '../ds';
-import { useDevMode } from '../store/devModeStore';
 import { useDemoSurfaceGesture } from './useDemoSurfaceGesture';
 
 // The glossary the #20 device pass found missing (#33). Each action line
@@ -61,24 +61,25 @@ function DotGrip({ color }: { color: string }) {
 }
 
 /**
- * The demo control surface (issues #17/#19): a small grey "DEMO" pill
- * present on every screen — release builds included — that expands into
- * a compact panel for summoning and controlling virtual devices, small
- * enough that the app stays visible while you drive the mocks. Pill and
+ * The demo control surface (issues #17/#19): a small grey "DEMO" pill that
+ * expands into a compact panel for summoning and controlling virtual devices,
+ * small enough that the app stays visible while you drive the mocks. Pill and
  * panel are both draggable — the panel by its header (#28) — and snap to
- * corners and mid-edges so they can never permanently cover critical
- * UI (#21).
+ * corners and mid-edges so they can never permanently cover critical UI (#21).
+ *
+ * Gated by the persisted demo-mode preference (#177): default off, so the
+ * pill is absent until the user enables it on About. Storybook moved to
+ * About's Developer section (#180/#182) — no longer a row here.
  */
 export function DemoSurface() {
   const theme = useTheme();
+  const demoModeEnabled = usePreferences((state) => state.demoModeEnabled);
   const demoMonitor = getDemoMonitor();
   const devices = useSyncExternalStore(
     (onChange) => demoMonitor.onDevicesChanged(onChange),
     () => demoMonitor.getDevices(),
   );
   const connectedId = useHeartRate((state) => state.connectedDevice?.id ?? null);
-  const devMode = useDevMode((state) => state.enabled);
-  const setStorybookActive = useDevMode((state) => state.setStorybookActive);
 
   const {
     PILL,
@@ -102,6 +103,10 @@ export function DemoSurface() {
   // The one pressed-feedback fill, shared by every Pressable in the panel —
   // the pre-migration `styles.pressed` rule, now a theme-resolved role.
   const pressedBg = { backgroundColor: theme.pressed };
+
+  // Preference off: render nothing. Teardown of summoned devices is the
+  // falling-edge subscriber in composeApp (#179), not this unmount.
+  if (!demoModeEnabled) return null;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onLayout}>
@@ -286,26 +291,6 @@ export function DemoSurface() {
               </Pressable>
             ))}
           </View>
-          {/* Dev-mode affordance (#88): hidden until the About-footer easter
-              egg flips dev mode on. Swaps the whole root tree to the on-device
-              Storybook UI (#101) — no longer a nav route (#100). */}
-          {devMode && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.devRow,
-                { borderTopColor: theme.border },
-                pressed && pressedBg,
-              ]}
-              onPress={() => {
-                collapse();
-                setStorybookActive(true);
-              }}
-            >
-              <Text variant="caption" weight="semibold" color="textSecondary">
-                Storybook →
-              </Text>
-            </Pressable>
-          )}
         </Animated.View>
       )}
     </View>
@@ -436,13 +421,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.control,
     alignItems: 'center',
     paddingVertical: spacing.sm,
-  },
-  // Set off from the demo-device controls above by a hairline: it drives
-  // the app, not the mocks.
-  devRow: {
-    marginTop: spacing.xxs,
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
   },
 });

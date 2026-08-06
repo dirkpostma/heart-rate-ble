@@ -22,7 +22,8 @@ against real hardware.*
 *Broadcast Heart Rate*), open the app, tap the sensor when it appears.
 Distribution is via TestFlight (internal group).
 
-**Without hardware:** summon a demo device (**Demo Workout n** — the name
+**Without hardware:** enable **Demo mode** on the About screen (off by
+default), then summon a demo device (**Demo Workout n** — the name
 carries the profile) — a virtual sensor that advertises and streams synthetic ~1 Hz heart rate through the
 exact same interface and staleness rules as real hardware, so the full
 flow works on any simulator. Tap the grey DEMO pill (bottom-right by default;
@@ -30,7 +31,7 @@ drag it out of the way — it snaps to corners and mid-edges) to open the
 demo panel: summon devices with a resting, workout or dropout
 profile, power them off (⏻ — silence, no goodbye, exactly like a watch
 that stops broadcasting), simulate a transient link drop (⚡), or remove
-them (✕).
+them (✕). Turning Demo mode off tears down every summoned device.
 
 ## How it works
 
@@ -51,6 +52,8 @@ src/ble/HeartRateMonitor.ts        the seam: scan / connect / samples
 
 src/store/heartRateStore.ts        Zustand vanilla store (factory, DI):
                                    scan lifecycle rule + staleness timing
+src/store/preferencesStore.ts      persisted user prefs (demo mode); storage
+                                   injected so bare-node tests stay clean
 src/screens/                       thin components, subscribe via selectors
 ```
 

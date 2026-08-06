@@ -1,6 +1,7 @@
 // The design system's public surface — the eight primitives derived from the
-// four screens (issue #82), plus the token layer they're built on. Screens
-// import from here, never from raw react-native Text / Pressable for these
+// four screens (issue #82), plus Switch once About gained a second themed
+// toggle (#181), plus the token layer they're built on. Screens import from
+// here, never from raw react-native Text / Pressable / Switch for these
 // roles, and never reach into ds/theme.ts directly.
 export {
   fontWeights,
@@ -23,3 +24,4 @@ export { StateDot, type StateDotProps } from './StateDot';
 export { Divider } from './Divider';
 export { Icon, type IconName, type IconProps } from './Icon';
 export { Screen, type ScreenProps } from './Screen';
+export { Switch, type SwitchProps } from './Switch';
