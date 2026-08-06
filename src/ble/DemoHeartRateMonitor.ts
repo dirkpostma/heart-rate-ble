@@ -159,6 +159,18 @@ export class DemoHeartRateMonitor implements HeartRateMonitor {
   }
 
   /**
+   * Tear down every virtual device via the existing single-device dismiss
+   * path. Preference subscriber on demo-mode falling edge calls this so
+   * About never needs the monitor and the store never learns demo-ness
+   * (#179). Not reversible — mode back on starts from zero devices.
+   */
+  dismissAll(): void {
+    for (const id of [...this.devices.keys()]) {
+      this.dismiss(id);
+    }
+  }
+
+  /**
    * Silence without a goodbye, exactly like hardware (a Garmin ending
    * its broadcast keeps the link up but stops advertising *and*
    * notifying): advertisements and samples both stop, and the store's

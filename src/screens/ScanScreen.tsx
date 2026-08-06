@@ -1,9 +1,9 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { FlatList, RefreshControl, StyleSheet, Switch, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import type { RootStackParamList } from '../app/navigation';
 import { useHeartRate } from '../app/useHeartRate';
 import type { DiscoveredDevice } from '../ble/HeartRateMonitor';
-import { Button, Card, Row, spacing, Text, useTheme } from '../ds';
+import { Button, Card, Row, spacing, Switch, Text, useTheme } from '../ds';
 import { scanRowDisabled, scanRowMeta, scanStatusLabel } from './scanStatus';
 import { VersionFooter } from './VersionFooter';
 
@@ -40,8 +40,7 @@ export function ScanScreen({ navigation }: Props) {
         <Switch
           value={scanEnabled}
           onValueChange={onToggleScan}
-          trackColor={{ true: theme.accent, false: theme.border }}
-          thumbColor={theme.onAccent}
+          accessibilityLabel="Scanning"
         />
       </View>
       {error && <Text color="danger" style={styles.error}>{error}</Text>}

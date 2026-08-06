@@ -220,4 +220,18 @@ describe('DemoHeartRateMonitor', () => {
     jest.advanceTimersByTime(3000);
     expect(advertised).toHaveLength(0); // gone, not just silent
   });
+
+  it('dismissAll removes every device and disconnects the connected one (#179)', async () => {
+    const a = monitor.summon();
+    monitor.summon('workout');
+    await connectTo(a.id);
+
+    monitor.dismissAll();
+
+    expect(monitor.getDevices()).toEqual([]);
+    expect(states[states.length - 1]).toBe('disconnected');
+    startScan();
+    jest.advanceTimersByTime(3000);
+    expect(advertised).toHaveLength(0);
+  });
 });

@@ -37,6 +37,13 @@ special cases (issue #16). One abstraction serves three masters: simulator
 development (no Bluetooth there), a hardware-free demo, and unit tests
 that inject a hand-driven monitor instead of mocking modules.
 
+The DEMO pill is gated by a persisted **Demo mode** preference on About
+(default off, [#177](https://github.com/dirkpostma/heart-rate-ble/issues/177)).
+`preferencesStore` accepts its storage as a dependency so bare-node jest
+never imports AsyncStorage; turning the preference off runs
+`dismissAll()` on the demo monitor outside the UI so the store still
+never learns demo-ness (#178/#179).
+
 ## State in a vanilla Zustand store, not React
 
 All app state — the device list, scan lifecycle, connection, samples —
